@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/l10n/app_strings.dart';
 import '../../../core/widgets/empty_state.dart';
+import '../../dashboard/presentation/dashboard_screen.dart';
 
 /// Main frame of the app: four tabs in a [NavigationBar].
 ///
@@ -42,21 +43,23 @@ class _HomeShellState extends State<HomeShell> {
     ),
   ];
 
+  void _select(int index) => setState(() => _index = index);
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: IndexedStack(
         index: _index,
-        children: const [
-          _PendingTab(title: AppStrings.navDashboard),
-          _PendingTab(title: AppStrings.navTransactions),
-          _PendingTab(title: AppStrings.navBudgets),
-          _PendingTab(title: AppStrings.navProfile),
+        children: [
+          DashboardScreen(onOpenBudgets: () => _select(2)),
+          const _PendingTab(title: AppStrings.navTransactions),
+          const _PendingTab(title: AppStrings.navBudgets),
+          const _PendingTab(title: AppStrings.navProfile),
         ],
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
-        onDestinationSelected: (index) => setState(() => _index = index),
+        onDestinationSelected: _select,
         destinations: _destinations,
       ),
     );

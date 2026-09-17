@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../utils/category_catalog.dart';
 import '../utils/formatters.dart';
-import 'money_text.dart';
 
 /// One budget row: category, spent-of-limit and a progress bar colored by the
 /// project thresholds — amber from 90%, red from 100%.
@@ -77,47 +76,36 @@ class BudgetProgressBar extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 8),
+        // Both halves are flexible and ellipsize: on a 360 px screen the
+        // amounts stay readable instead of overflowing the row.
         Row(
           children: [
-            Expanded(
-              child: DefaultTextStyle.merge(
-                style: theme.textTheme.bodySmall!.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
+            Flexible(
+              child: Text(
+                '${Formatters.compactMoney(spentAmount, currency)} '
+                'из ${Formatters.compactMoney(limitAmount, currency)}',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurface,
                 ),
-                child: Row(
-                  children: [
-                    MoneyText(
-                      amount: spentAmount,
-                      currency: currency,
-                      compact: true,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurface,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    Text(' из ', style: theme.textTheme.bodySmall),
-                    Flexible(
-                      child: MoneyText(
-                        amount: limitAmount,
-                        currency: currency,
-                        compact: true,
-                        style: theme.textTheme.bodySmall,
-                      ),
-                    ),
-                  ],
-                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
             if (showRemaining) ...[
               const SizedBox(width: 8),
-              Text(
-                remaining >= 0
-                    ? 'осталось ${Formatters.compactMoney(remaining, currency)}'
-                    : 'перерасход ${Formatters.compactMoney(-remaining, currency)}',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: remaining >= 0
-                      ? theme.colorScheme.onSurfaceVariant
-                      : semantic.danger,
+              Flexible(
+                child: Text(
+                  remaining >= 0
+                      ? 'осталось ${Formatters.compactMoney(remaining, currency)}'
+                      : 'перерасход ${Formatters.compactMoney(-remaining, currency)}',
+                  textAlign: TextAlign.end,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: remaining >= 0
+                        ? theme.colorScheme.onSurfaceVariant
+                        : semantic.danger,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
