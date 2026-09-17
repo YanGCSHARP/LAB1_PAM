@@ -31,3 +31,24 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
+  # Inter is bundled instead of fetched through google_fonts: the app must work
+  # fully offline, and a network-loaded font would break that.
+  # Inter v4.1 by Rasmus Andersson, SIL Open Font License 1.1
+  # (assets/fonts/Inter-LICENSE.txt).
+  fonts:
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/Inter-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Inter-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Inter-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Inter-Bold.ttf
+          weight: 700
+    # Optical size cut for large numerals: tighter spacing, smaller apertures.
+    - family: InterDisplay
+      fonts:
+        - asset: assets/fonts/InterDisplay-SemiBold.ttf
+          weight: 600
