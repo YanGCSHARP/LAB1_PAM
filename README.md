@@ -62,9 +62,8 @@
 
 ```
 walletmate/
-├── CLAUDE.md                   # правила работы над проектом
-├── LABS.md                     # задания по этапам L1–L6
 ├── .editorconfig
+├── .gitignore
 ├── app/                        # Flutter-приложение (появится на L2)
 │   ├── lib/
 │   │   ├── core/               # theme, router, widgets, utils, network, db
@@ -182,9 +181,6 @@ scope `app` или `api`), мерж в `main` через `--no-ff` и тег `LN
 Секреты в репозиторий не попадают: `.env`, `appsettings.Development.json`,
 `key.properties` и keystore перечислены в `.gitignore`, в репозитории лежат
 только `*.example`-шаблоны.
-
-Правила работы над проектом — [`CLAUDE.md`](CLAUDE.md),
-задания по этапам — [`LABS.md`](LABS.md).
 
 ---
 
