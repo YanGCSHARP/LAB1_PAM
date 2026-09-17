@@ -1,4 +1,4 @@
-package md.utm.walletmate.app
+package md.yang.walletmate
 
 import io.flutter.embedding.android.FlutterActivity
 
