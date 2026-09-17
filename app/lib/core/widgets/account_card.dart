@@ -1,12 +1,34 @@
 import 'package:flutter/material.dart';
 
 import '../mock/mock_data.dart';
+import '../theme/app_theme.dart';
+import '../theme/design_tokens.dart';
 import 'money_text.dart';
 
-/// Balance card of a single account.
+/// Icon and tint for an account type, so three accounts no longer look like
+/// three identical squares.
+({IconData icon, Color color}) accountVisual(
+  BuildContext context,
+  AccountKind kind,
+) {
+  final semantic = context.semantic;
+  return switch (kind) {
+    AccountKind.card => (
+      icon: Icons.credit_card,
+      color: context.colors.primary,
+    ),
+    AccountKind.cash => (icon: Icons.payments_outlined, color: semantic.income),
+    AccountKind.savings => (
+      icon: Icons.savings_outlined,
+      color: semantic.category('utilities'),
+    ),
+  };
+}
+
+/// Balance card of one account.
 ///
-/// Used on the dashboard in a horizontally scrolling row ([width] fixed) and
-/// on the accounts screen as a full-width tile ([width] left null).
+/// [width] fixed — the horizontal strip on the dashboard; [width] null — a
+/// full-width tile on the accounts screen.
 class AccountCard extends StatelessWidget {
   const AccountCard({required this.account, super.key, this.onTap, this.width});
 
@@ -16,13 +38,13 @@ class AccountCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final visual = accountVisual(context, account.kind);
 
     final card = Card(
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: Insets.cardPadding,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
@@ -30,51 +52,43 @@ class AccountCard extends StatelessWidget {
               Row(
                 children: [
                   Container(
-                    width: 36,
-                    height: 36,
+                    width: 34,
+                    height: 34,
                     decoration: BoxDecoration(
-                      color: theme.colorScheme.primaryContainer,
-                      borderRadius: BorderRadius.circular(10),
+                      color: visual.color.withValues(alpha: 0.14),
+                      borderRadius: Corners.chipRadius,
                     ),
                     child: Icon(
-                      Icons.account_balance_wallet_outlined,
-                      size: 20,
-                      color: theme.colorScheme.onPrimaryContainer,
+                      visual.icon,
+                      size: IconSizes.md,
+                      color: visual.color,
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: Insets.sm + 2),
                   Expanded(
                     child: Text(
                       account.name,
-                      style: theme.textTheme.titleSmall,
+                      style: context.texts.titleSmall,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: Insets.lg),
               MoneyText(
                 amount: account.balance,
                 currency: account.currency,
-                style: theme.textTheme.headlineSmall,
+                size: MoneySize.large,
               ),
               const SizedBox(height: 2),
-              Text(
-                account.currency,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
+              Text(account.currency, style: context.texts.labelSmall),
             ],
           ),
         ),
       ),
     );
 
-    if (width == null) {
-      return card;
-    }
-    return SizedBox(width: width, child: card);
+    return width == null ? card : SizedBox(width: width, child: card);
   }
 }

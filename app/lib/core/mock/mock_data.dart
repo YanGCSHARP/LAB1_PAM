@@ -8,6 +8,9 @@ import '../utils/category_catalog.dart';
 /// network and no database yet. The lightweight classes below carry just the
 /// fields the screens display; real domain models with `copyWith`/`toJson`
 /// arrive together with the repositories.
+/// Account type — decides the icon and tint of an account card.
+enum AccountKind { card, cash, savings }
+
 @immutable
 class MockAccount {
   const MockAccount({
@@ -15,11 +18,13 @@ class MockAccount {
     required this.name,
     required this.currency,
     required this.balance,
+    required this.kind,
   });
 
   final String id;
   final String name;
   final String currency;
+  final AccountKind kind;
 
   /// Stored as a plain field while the data is static; computed from
   /// transactions once the repositories land.
@@ -122,13 +127,21 @@ const List<MockAccount> mockAccounts = [
     name: 'Карта Maib',
     currency: 'MDL',
     balance: 4210.50,
+    kind: AccountKind.card,
   ),
-  MockAccount(id: 'acc-2', name: 'Наличные', currency: 'MDL', balance: 780.00),
+  MockAccount(
+    id: 'acc-2',
+    name: 'Наличные',
+    currency: 'MDL',
+    balance: 780.00,
+    kind: AccountKind.cash,
+  ),
   MockAccount(
     id: 'acc-3',
     name: 'Сбережения',
     currency: 'EUR',
     balance: 350.00,
+    kind: AccountKind.savings,
   ),
 ];
 

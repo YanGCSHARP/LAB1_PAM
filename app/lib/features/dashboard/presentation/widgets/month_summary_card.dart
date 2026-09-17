@@ -20,7 +20,7 @@ class MonthSummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final semantic = context.semanticColors;
+    final semantic = context.semantic;
 
     return Card(
       child: Padding(
@@ -94,11 +94,7 @@ class _SummaryCell extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 6),
-        MoneyText(
-          amount: amount,
-          currency: currency,
-          style: theme.textTheme.titleMedium?.copyWith(color: color),
-        ),
+        MoneyText(amount: amount, currency: currency, color: color),
       ],
     );
   }

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/mock/mock_data.dart';
 import '../../../../core/widgets/budget_progress_bar.dart';
-import '../../../../core/widgets/empty_state.dart';
+import '../../../../core/widgets/state_views.dart';
 
 /// Budgets block of the dashboard: one progress row per category, the most
 /// used first, so an exceeded limit is the first thing visible.

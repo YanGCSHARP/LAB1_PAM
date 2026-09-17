@@ -2,11 +2,11 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../core/mock/mock_data.dart';
-import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/category_catalog.dart';
 import '../../../../core/utils/formatters.dart';
-import '../../../../core/widgets/empty_state.dart';
 import '../../../../core/widgets/money_text.dart';
+import '../../../../core/widgets/state_views.dart';
 
 /// Donut chart of the month's expense structure with a legend underneath.
 class ExpenseBreakdownCard extends StatelessWidget {
@@ -91,7 +91,7 @@ class _Donut extends StatelessWidget {
                 for (final slice in slices)
                   PieChartSectionData(
                     value: slice.amount,
-                    color: AppColors.categoryColor(slice.category),
+                    color: context.semantic.category(slice.category),
                     radius: 26,
                     showTitle: false,
                   ),
@@ -112,7 +112,7 @@ class _Donut extends StatelessWidget {
                 amount: totalExpense,
                 currency: currency,
                 compact: true,
-                style: theme.textTheme.titleLarge,
+                size: MoneySize.large,
               ),
             ],
           ),
@@ -143,7 +143,7 @@ class _Legend extends StatelessWidget {
                   width: 10,
                   height: 10,
                   decoration: BoxDecoration(
-                    color: AppColors.categoryColor(slice.category),
+                    color: context.semantic.category(slice.category),
                     borderRadius: BorderRadius.circular(3),
                   ),
                 ),
@@ -168,9 +168,7 @@ class _Legend extends StatelessWidget {
                   amount: slice.amount,
                   currency: currency,
                   compact: true,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+                  size: MoneySize.small,
                 ),
               ],
             ),

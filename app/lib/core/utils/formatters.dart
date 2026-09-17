@@ -25,13 +25,17 @@ abstract final class Formatters {
     ).format(amount);
   }
 
-  /// `+1 234,50 L` / `−1 234,50 L`, using a real minus sign.
+  /// `+1 234,50 L` / `−1 234,50 L`, using a real minus sign rather than
+  /// a hyphen, so the sign lines up with the tabular digits.
   static String signedMoney(
     double amount,
     String currency, {
     bool isIncome = true,
+    bool compact = false,
   }) {
-    final formatted = money(amount.abs(), currency);
+    final formatted = compact
+        ? compactMoney(amount.abs(), currency)
+        : money(amount.abs(), currency);
     return isIncome ? '+$formatted' : '−$formatted';
   }
 

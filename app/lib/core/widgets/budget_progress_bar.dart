@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
+import '../theme/design_tokens.dart';
 import '../utils/category_catalog.dart';
 import '../utils/formatters.dart';
+import 'app_badge.dart';
 
-/// One budget row: category, spent-of-limit and a progress bar colored by the
+/// One budget row: category, spent-of-limit, and a track colored by the
 /// project thresholds — amber from 90%, red from 100%.
+///
+/// Above 90% the row also gets a text badge: at the two thresholds color alone
+/// is not enough, amber and green collapse together for a deuteranope.
 class BudgetProgressBar extends StatelessWidget {
   const BudgetProgressBar({
     required this.category,
@@ -14,7 +19,6 @@ class BudgetProgressBar extends StatelessWidget {
     required this.currency,
     super.key,
     this.onTap,
-    this.showRemaining = true,
   });
 
   final String category;
@@ -23,27 +27,22 @@ class BudgetProgressBar extends StatelessWidget {
   final String currency;
   final VoidCallback? onTap;
 
-  /// Shows the "осталось" / "превышение" line under the bar.
-  final bool showRemaining;
-
   double get _progress => limitAmount <= 0 ? 0 : spentAmount / limitAmount;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final semantic = context.semanticColors;
+    final semantic = context.semantic;
     final progress = _progress;
-
-    final Color barColor;
-    if (progress >= 1.0) {
-      barColor = semantic.danger;
-    } else if (progress >= 0.9) {
-      barColor = semantic.warning;
-    } else {
-      barColor = theme.colorScheme.primary;
-    }
-
     final remaining = limitAmount - spentAmount;
+
+    final Color trackColor;
+    if (progress >= 1.0) {
+      trackColor = semantic.danger;
+    } else if (progress >= 0.9) {
+      trackColor = semantic.warning;
+    } else {
+      trackColor = semantic.category(category);
+    }
 
     final row = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -53,62 +52,66 @@ class BudgetProgressBar extends StatelessWidget {
             Expanded(
               child: Text(
                 CategoryCatalog.labelOf(category),
-                style: theme.textTheme.titleSmall,
+                style: context.texts.titleSmall,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: Insets.sm),
             Text(
               Formatters.percent(progress),
-              style: theme.textTheme.labelLarge?.copyWith(color: barColor),
+              style: context.money.small.copyWith(color: trackColor),
             ),
           ],
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: Insets.sm),
         ClipRRect(
-          borderRadius: BorderRadius.circular(6),
+          borderRadius: Corners.pillRadius,
           child: LinearProgressIndicator(
             value: progress.clamp(0.0, 1.0),
-            minHeight: 8,
-            backgroundColor: theme.colorScheme.surfaceContainerHighest,
-            valueColor: AlwaysStoppedAnimation<Color>(barColor),
+            minHeight: Strokes.progress,
+            backgroundColor: context.colors.surfaceContainerHighest,
+            valueColor: AlwaysStoppedAnimation<Color>(trackColor),
           ),
         ),
-        const SizedBox(height: 8),
-        // Both halves are flexible and ellipsize: on a 360 px screen the
-        // amounts stay readable instead of overflowing the row.
+        const SizedBox(height: Insets.sm),
+        // Both halves flex and ellipsize so the row survives a 360 px screen.
         Row(
           children: [
             Flexible(
               child: Text(
                 '${Formatters.compactMoney(spentAmount, currency)} '
                 'из ${Formatters.compactMoney(limitAmount, currency)}',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurface,
-                ),
+                style: context.texts.bodySmall,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            if (showRemaining) ...[
-              const SizedBox(width: 8),
+            const SizedBox(width: Insets.sm),
+            if (progress >= 1.0)
+              AppBadge(
+                label:
+                    'перерасход ${Formatters.compactMoney(-remaining, currency)}',
+                tone: BadgeTone.danger,
+                icon: Icons.priority_high,
+              )
+            else if (progress >= 0.9)
+              AppBadge(
+                label:
+                    'осталось ${Formatters.compactMoney(remaining, currency)}',
+                tone: BadgeTone.warning,
+                icon: Icons.warning_amber_rounded,
+              )
+            else
               Flexible(
                 child: Text(
-                  remaining >= 0
-                      ? 'осталось ${Formatters.compactMoney(remaining, currency)}'
-                      : 'перерасход ${Formatters.compactMoney(-remaining, currency)}',
+                  'осталось ${Formatters.compactMoney(remaining, currency)}',
                   textAlign: TextAlign.end,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: remaining >= 0
-                        ? theme.colorScheme.onSurfaceVariant
-                        : semantic.danger,
-                  ),
+                  style: context.texts.bodySmall,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-            ],
           ],
         ),
       ],
@@ -119,8 +122,8 @@ class BudgetProgressBar extends StatelessWidget {
     }
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Padding(padding: const EdgeInsets.all(4), child: row),
+      borderRadius: Corners.cardRadius,
+      child: Padding(padding: const EdgeInsets.all(Insets.xs), child: row),
     );
   }
 }

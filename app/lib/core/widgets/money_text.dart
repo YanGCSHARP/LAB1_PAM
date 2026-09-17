@@ -3,36 +3,53 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../utils/formatters.dart';
 
-/// Renders an amount with the currency symbol and, optionally, a direction
-/// sign colored as income or expense.
+/// How large a money value is rendered. Maps onto the money type scale.
+enum MoneySize { hero, large, medium, small }
+
+/// Renders an amount with its currency symbol, optionally signed and colored
+/// as income or expense.
 ///
-/// Amounts are always formatted through [Formatters] — never concatenated —
-/// so grouping and the decimal separator stay consistent across the app.
+/// Always goes through [Formatters], and the money styles carry tabular
+/// figures, so a column of amounts lines up instead of jittering.
 class MoneyText extends StatelessWidget {
   const MoneyText({
     required this.amount,
     required this.currency,
     super.key,
     this.isIncome,
-    this.style,
+    this.size = MoneySize.medium,
     this.compact = false,
     this.colored = true,
+    this.color,
   });
 
-  /// Always positive; the sign comes from [isIncome].
+  /// Always positive; the direction comes from [isIncome].
   final double amount;
   final String currency;
 
-  /// `null` renders the amount without a sign and without a semantic color.
+  /// `null` renders the value without a sign and without a semantic color.
   final bool? isIncome;
 
-  final TextStyle? style;
+  final MoneySize size;
 
-  /// Drops the decimal part — for chart legends and other tight places.
+  /// Drops the decimals — for legends and other tight places.
   final bool compact;
 
   /// Set to `false` to keep the default text color while still showing a sign.
   final bool colored;
+
+  /// Overrides the color entirely, e.g. on an accent-filled surface.
+  final Color? color;
+
+  TextStyle _style(BuildContext context) {
+    final styles = context.money;
+    return switch (size) {
+      MoneySize.hero => styles.hero,
+      MoneySize.large => styles.large,
+      MoneySize.medium => styles.medium,
+      MoneySize.small => styles.small,
+    };
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -41,20 +58,22 @@ class MoneyText extends StatelessWidget {
         ? (compact
               ? Formatters.compactMoney(amount, currency)
               : Formatters.money(amount, currency))
-        : Formatters.signedMoney(amount, currency, isIncome: direction);
+        : Formatters.signedMoney(
+            amount,
+            currency,
+            isIncome: direction,
+            compact: compact,
+          );
 
-    Color? color;
-    if (colored && direction != null) {
-      final semantic = context.semanticColors;
-      color = direction ? semantic.income : semantic.expense;
+    Color? resolved = color;
+    if (resolved == null && colored && direction != null) {
+      final semantic = context.semantic;
+      resolved = direction ? semantic.income : semantic.expense;
     }
 
     return Text(
       text,
-      style: (style ?? DefaultTextStyle.of(context).style).copyWith(
-        color: color,
-        fontFeatures: const [FontFeature.tabularFigures()],
-      ),
+      style: _style(context).copyWith(color: resolved),
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
     );

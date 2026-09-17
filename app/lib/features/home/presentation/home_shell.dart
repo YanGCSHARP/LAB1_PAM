@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/l10n/app_strings.dart';
-import '../../../core/widgets/empty_state.dart';
+import '../../../core/widgets/state_views.dart';
 import '../../dashboard/presentation/dashboard_screen.dart';
 
 /// Main frame of the app: four tabs in a [NavigationBar].

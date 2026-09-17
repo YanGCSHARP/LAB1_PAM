@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../../core/mock/mock_data.dart';
 import '../../../core/widgets/account_card.dart';
-import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/money_text.dart';
+import '../../../core/widgets/state_views.dart';
 import 'account_form_screen.dart';
 
 /// List of the user's accounts with a per-currency total on top.
@@ -95,9 +95,8 @@ class _TotalsCard extends StatelessWidget {
                 child: MoneyText(
                   amount: entry.value,
                   currency: entry.key,
-                  style: theme.textTheme.headlineSmall?.copyWith(
-                    color: theme.colorScheme.onPrimaryContainer,
-                  ),
+                  size: MoneySize.large,
+                  color: theme.colorScheme.onPrimaryContainer,
                 ),
               ),
           ],
