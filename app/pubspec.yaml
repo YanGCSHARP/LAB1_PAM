@@ -11,6 +11,10 @@ dependencies:
   flutter:
     sdk: flutter
 
+  # Russian labels inside Material widgets (date picker, text selection).
+  flutter_localizations:
+    sdk: flutter
+
   cupertino_icons: ^1.0.8
 
   # Money and date formatting for the ru locale.
