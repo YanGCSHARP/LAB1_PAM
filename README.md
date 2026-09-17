@@ -5,7 +5,16 @@
 
 Отвечает на вопрос **«куда делись деньги в этом месяце?»**.
 
+| | |
+|---|---|
+| Дисциплина | Программирование мобильных приложений (PAM), UTM / FCIM / ISA, 2026–2027 |
+| Тема | **T7 — WalletMate (личные финансы)**, уровень сложности «повышенный» |
+| Автор | Yang Alexandru, группа `____` |
+
 > **Статус:** этап L1 — спецификация. Кода приложения пока нет.
+
+**Аудитория:** студенты и молодые специалисты — нерегулярный доход, небольшие суммы,
+часть трат наличными, которых банковское приложение не видит.
 
 ---
 
@@ -53,10 +62,25 @@
 
 ```
 walletmate/
-├── app/          # Flutter-приложение
-├── backend/      # .NET Web API
-└── docs/         # спецификация, ER-диаграмма, контракт API, отчёты
+├── .editorconfig
+├── .gitignore
+├── app/                        # Flutter-приложение (появится на L2)
+│   ├── lib/
+│   │   ├── core/               # theme, router, widgets, utils, network, db
+│   │   └── features/           # auth, dashboard, transactions, accounts, budgets, profile
+│   └── test/                   # unit- и widget-тесты
+├── backend/                    # .NET Web API (появится на L5)
+│   ├── src/WalletMate.Api/     # Controllers, Entities, Dtos, Data, Services
+│   ├── tests/WalletMate.Api.Tests/
+│   └── docker-compose.yml
+└── docs/
+    ├── screens.md              # карта экранов и переходов
+    ├── er-diagram.md           # модель данных
+    ├── api-contract.md         # контракт REST API
+    └── reports/                # отчёты по лабораторным L1–L6
 ```
+
+Внутри каждой feature — слои `presentation/`, `domain/`, `data/`.
 
 ---
 
@@ -69,6 +93,7 @@ walletmate/
 | `Transaction` | id, accountId, amount, type (income/expense), category, date, note |
 | `Budget` | id, userId, category, limitAmount, month |
 
+Баланс счёта и прогресс бюджета не хранятся, а считаются из транзакций.
 Подробнее — [`docs/er-diagram.md`](docs/er-diagram.md) и
 [`docs/api-contract.md`](docs/api-contract.md).
 
@@ -76,16 +101,31 @@ walletmate/
 
 ## Экраны
 
-1. Вход / регистрация
-2. Общая панель
-3. Список транзакций
-4. Карточка транзакции
-5. Форма транзакции
-6. Мои счета
-7. Месячные бюджеты
-8. Профиль
+Восемь обязательных экранов; четыре из них — вкладки нижней навигации.
 
-Карта навигации — [`docs/screens.md`](docs/screens.md).
+| # | Экран | Назначение |
+|---|---|---|
+| 1 | Вход / регистрация | Аутентификация по email и паролю, создание аккаунта |
+| 2 | Общая панель | Балансы счетов, структура расходов на диаграмме, состояние бюджетов |
+| 3 | Список транзакций | Операции с группировкой по датам, поиск и фильтры |
+| 4 | Карточка транзакции | Детали одной операции, кнопки «Изменить» и «Удалить» |
+| 5 | Форма транзакции | Создание и редактирование операции |
+| 6 | Мои счета | Список счетов и форма счёта |
+| 7 | Месячные бюджеты | Лимиты по категориям с прогрессом и форма бюджета |
+| 8 | Профиль | Данные пользователя, валюта по умолчанию, тема, выход |
+
+Маршруты, переходы и карта навигации — [`docs/screens.md`](docs/screens.md).
+
+---
+
+## Документация
+
+| Документ | Содержание |
+|---|---|
+| [`docs/screens.md`](docs/screens.md) | Карта экранов, маршруты, переходы, состояния |
+| [`docs/er-diagram.md`](docs/er-diagram.md) | Модель данных, связи, индексы, справочник категорий |
+| [`docs/api-contract.md`](docs/api-contract.md) | Контракт REST API с примерами и форматом ошибок |
+| [`docs/reports/L1.md`](docs/reports/L1.md) | Отчёт по этапу L1 |
 
 ---
 
@@ -96,7 +136,7 @@ walletmate/
 
 | Этап | Содержание | Статус |
 |---|---|---|
-| L1 | Спецификация, ER-диаграмма, карта экранов, контракт API | в работе |
+| L1 | Спецификация, ER-диаграмма, карта экранов, контракт API | готово |
 | L2 | Статические экраны на Material 3 | — |
 | L3 | Навигация (go_router), формы с валидацией | — |
 | L4 | State management + Repository с mock-данными | — |
@@ -107,9 +147,10 @@ walletmate/
 
 ## Запуск
 
-> Появится начиная с L2.
+> ⚠️ Команды ниже приведены заранее и **пока не работают**: каталога `app/` нет
+> до этапа L2, каталога `backend/` — до L5.
 
-**Приложение**
+**Приложение** (с L2)
 
 ```bash
 cd app
@@ -117,7 +158,7 @@ flutter pub get
 flutter run
 ```
 
-**Backend**
+**Backend** (с L5)
 
 ```bash
 cd backend
@@ -126,10 +167,24 @@ dotnet ef database update --project src/WalletMate.Api
 dotnet run --project src/WalletMate.Api
 ```
 
-Swagger будет доступен на `http://localhost:5099/swagger`.
+Swagger будет доступен на `http://localhost:5099/swagger`,
+демо-учётка — `demo@walletmate.md` / `Demo1234`.
+
+---
+
+## Разработка
+
+Один этап — одна ветка `lab/LN`, атомарные коммиты (Conventional Commits,
+scope `app` или `api`), мерж в `main` через `--no-ff` и тег `LN`.
+Перед каждым коммитом: `dart format .`, `flutter analyze`, `flutter test`.
+
+Секреты в репозиторий не попадают: `.env`, `appsettings.Development.json`,
+`key.properties` и keystore перечислены в `.gitignore`, в репозитории лежат
+только `*.example`-шаблоны.
 
 ---
 
 ## Автор
 
-Yang Alexandru
+Yang Alexandru, группа `____`
+UTM / FCIM / ISA, дисциплина PAM, 2026–2027
