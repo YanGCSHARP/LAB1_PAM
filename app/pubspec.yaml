@@ -1,0 +1,54 @@
+name: walletmate
+description: "WalletMate — personal finance tracker: accounts, transactions, monthly budgets."
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.13.3
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Russian labels inside Material widgets (date picker, text selection).
+  flutter_localizations:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8
+
+  # Money and date formatting for the ru locale.
+  intl: ^0.20.2
+
+  # Expense breakdown chart on the dashboard.
+  fl_chart: ^1.1.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+
+  # Inter is bundled instead of fetched through google_fonts: the app must work
+  # fully offline, and a network-loaded font would break that.
+  # Inter v4.1 by Rasmus Andersson, SIL Open Font License 1.1
+  # (assets/fonts/Inter-LICENSE.txt).
+  fonts:
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/Inter-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Inter-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Inter-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Inter-Bold.ttf
+          weight: 700
+    # Optical size cut for large numerals: tighter spacing, smaller apertures.
+    - family: InterDisplay
+      fonts:
+        - asset: assets/fonts/InterDisplay-SemiBold.ttf
+          weight: 600

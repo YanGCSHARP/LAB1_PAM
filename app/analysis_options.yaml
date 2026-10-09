@@ -1,0 +1,21 @@
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  errors:
+    # Missing const constructors are a project rule, not a suggestion.
+    prefer_const_constructors: warning
+  exclude:
+    - build/**
+    - android/**
+    - ios/**
+    - web/**
+
+linter:
+  rules:
+    - prefer_single_quotes
+    - require_trailing_commas
+    - always_declare_return_types
+    - avoid_redundant_argument_values
+    - directives_ordering
+    - sort_child_properties_last
+    - unnecessary_parenthesis
