@@ -1,24 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/l10n/app_strings.dart';
-import '../../../core/widgets/state_views.dart';
-import '../../dashboard/presentation/dashboard_screen.dart';
 
 /// Main frame of the app: four tabs in a [NavigationBar].
 ///
-/// The selected index is local widget state; tab switching is plain
-/// [IndexedStack] swapping, so each tab keeps its scroll position.
-class HomeShell extends StatefulWidget {
-  const HomeShell({super.key, this.initialIndex = 0});
+/// Each tab is a branch of the router's `StatefulShellRoute`, so a tab keeps
+/// its own stack — open a transaction, switch to budgets and back, and the
+/// transaction is still open.
+class HomeShell extends StatelessWidget {
+  const HomeShell({required this.navigationShell, super.key});
 
-  final int initialIndex;
-
-  @override
-  State<HomeShell> createState() => _HomeShellState();
-}
-
-class _HomeShellState extends State<HomeShell> {
-  late int _index = widget.initialIndex;
+  final StatefulNavigationShell navigationShell;
 
   static const List<NavigationDestination> _destinations = [
     NavigationDestination(
@@ -43,44 +36,23 @@ class _HomeShellState extends State<HomeShell> {
     ),
   ];
 
-  void _select(int index) => setState(() => _index = index);
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: IndexedStack(
-        index: _index,
-        children: [
-          DashboardScreen(onOpenBudgets: () => _select(2)),
-          const _PendingTab(title: AppStrings.navTransactions),
-          const _PendingTab(title: AppStrings.navBudgets),
-          const _PendingTab(title: AppStrings.navProfile),
-        ],
-      ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _index,
-        onDestinationSelected: _select,
-        destinations: _destinations,
-      ),
+  void _select(int index) {
+    // Tapping the tab that is already open returns it to its root screen,
+    // as in most mobile apps.
+    navigationShell.goBranch(
+      index,
+      initialLocation: index == navigationShell.currentIndex,
     );
   }
-}
-
-/// Temporary content of a tab whose screen is built later in this same lab.
-/// Every one of these is replaced before the stage is finished.
-class _PendingTab extends StatelessWidget {
-  const _PendingTab({required this.title});
-
-  final String title;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(title)),
-      body: const EmptyState(
-        icon: Icons.construction_outlined,
-        title: 'Экран в работе',
-        message: 'Появится в этой же лабораторной — вёрстка идёт по очереди.',
+      body: navigationShell,
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: navigationShell.currentIndex,
+        onDestinationSelected: _select,
+        destinations: _destinations,
       ),
     );
   }

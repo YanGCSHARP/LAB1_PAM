@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/l10n/app_strings.dart';
 import '../../../core/mock/mock_data.dart';
+import '../../../core/router/app_routes.dart';
+import '../../../core/utils/category_catalog.dart';
 import '../../../core/utils/formatters.dart';
-import '../../accounts/presentation/accounts_screen.dart';
+import '../../transactions/domain/transaction_filter.dart';
 import 'widgets/accounts_strip.dart';
 import 'widgets/dashboard_budgets_card.dart';
 import 'widgets/expense_breakdown_card.dart';
@@ -14,19 +17,30 @@ import 'widgets/month_summary_card.dart';
 /// All numbers come from the mock data; the month is fixed at this stage —
 /// picking a different one needs state the app does not have yet.
 class DashboardScreen extends StatelessWidget {
-  const DashboardScreen({super.key, this.onOpenBudgets});
-
-  /// Switches the shell to the budgets tab.
-  final VoidCallback? onOpenBudgets;
+  const DashboardScreen({super.key});
 
   /// Totals are shown in the user's default currency. Accounts in other
   /// currencies are listed separately and not converted — currency conversion
   /// is a separate, optional feature.
   static const String _displayCurrency = MockUser.defaultCurrency;
 
+  /// Accounts are pushed, not switched to: back returns to the dashboard.
   void _openAccounts(BuildContext context) {
-    Navigator.of(context)
-        .push(MaterialPageRoute<void>(builder: (_) => const AccountsScreen()));
+    context.push(AppRoutes.accounts);
+  }
+
+  /// Jumps to the transactions tab, filtered to one expense category of the
+  /// month — the answer to "what exactly did I spend on food?".
+  void _openCategory(BuildContext context, String category, DateTime month) {
+    context.go(
+      AppRoutes.transactionsFiltered(
+        TransactionFilter(
+          kind: TransactionKind.expense,
+          category: category,
+          month: Formatters.monthKey(month),
+        ),
+      ),
+    );
   }
 
   @override
@@ -41,7 +55,7 @@ class DashboardScreen extends StatelessWidget {
           IconButton(
             onPressed: () => _openAccounts(context),
             icon: const Icon(Icons.account_balance_wallet_outlined),
-            tooltip: 'Мои счета',
+            tooltip: AppStrings.accounts,
           ),
         ],
       ),
@@ -77,6 +91,8 @@ class DashboardScreen extends StatelessWidget {
               slices: mockCategoryBreakdown(month),
               totalExpense: mockTotalExpense(month),
               currency: _displayCurrency,
+              onCategoryTap: (category) =>
+                  _openCategory(context, category, month),
             ),
           ),
           const SizedBox(height: 16),
@@ -85,7 +101,11 @@ class DashboardScreen extends StatelessWidget {
             child: DashboardBudgetsCard(
               budgets: mockBudgetProgress(month),
               currency: _displayCurrency,
-              onSeeAll: onOpenBudgets,
+              onSeeAll: () => context.go(
+                AppRoutes.budgetsOfMonth(Formatters.monthKey(month)),
+              ),
+              onBudgetTap: (category) =>
+                  _openCategory(context, category, month),
             ),
           ),
         ],

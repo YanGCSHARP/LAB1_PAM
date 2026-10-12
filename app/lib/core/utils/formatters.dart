@@ -13,6 +13,9 @@ abstract final class Formatters {
     'USD': '\$',
   };
 
+  /// Currencies an account or the profile can be set to.
+  static final List<String> currencies = _currencySymbols.keys.toList();
+
   static String currencySymbol(String currency) =>
       _currencySymbols[currency] ?? currency;
 
@@ -46,6 +49,12 @@ abstract final class Formatters {
       symbol: currencySymbol(currency),
       decimalDigits: 0,
     ).format(amount);
+  }
+
+  /// `4 210,50` — an amount pre-filled into a form field, without a currency
+  /// symbol, in the same format the field accepts back.
+  static String amountInput(double amount) {
+    return NumberFormat('#,##0.00', locale).format(amount);
   }
 
   /// `31,7 %`

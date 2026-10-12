@@ -441,6 +441,37 @@ const List<MockBudget> mockBudgets = [
 MockAccount mockAccountById(String id) =>
     mockAccounts.firstWhere((account) => account.id == id);
 
+// Lookups behind the `:id` routes. They return `null` instead of throwing:
+// an id comes from a URL, and a stale or mistyped link must show "not found",
+// not crash the app.
+
+MockAccount? findMockAccount(String id) {
+  for (final account in mockAccounts) {
+    if (account.id == id) {
+      return account;
+    }
+  }
+  return null;
+}
+
+MockTransaction? findMockTransaction(String id) {
+  for (final transaction in mockTransactions) {
+    if (transaction.id == id) {
+      return transaction;
+    }
+  }
+  return null;
+}
+
+MockBudget? findMockBudget(String id) {
+  for (final budget in mockBudgets) {
+    if (budget.id == id) {
+      return budget;
+    }
+  }
+  return null;
+}
+
 bool _isInMonth(DateTime date, DateTime month) {
   final local = date.toLocal();
   return local.year == month.year && local.month == month.month;
@@ -454,6 +485,19 @@ List<MockTransaction> mockTransactionsOfMonth(DateTime month) {
           .toList()
         ..sort((a, b) => b.date.compareTo(a.date));
   return result;
+}
+
+/// Months that have at least one transaction, newest first — the options of
+/// the period filter.
+List<DateTime> mockMonthsWithTransactions() {
+  final months = <DateTime>{
+    for (final transaction in mockTransactions)
+      DateTime(
+        transaction.date.toLocal().year,
+        transaction.date.toLocal().month,
+      ),
+  }.toList()..sort((a, b) => b.compareTo(a));
+  return months;
 }
 
 /// All transactions, newest first.

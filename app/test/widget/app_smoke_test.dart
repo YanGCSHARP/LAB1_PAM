@@ -9,6 +9,7 @@ void main() {
 
   testWidgets('app starts on the login screen', (tester) async {
     await tester.pumpWidget(const WalletMateApp());
+    await tester.pumpAndSettle();
 
     expect(find.text('Вход'), findsWidgets);
     expect(find.text('Куда делись деньги в этом месяце?'), findsOneWidget);
@@ -30,7 +31,16 @@ void main() {
 
   testWidgets('signing in opens the shell with four tabs', (tester) async {
     await tester.pumpWidget(const WalletMateApp());
+    await tester.pumpAndSettle();
 
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Email'),
+      'demo@walletmate.md',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Пароль'),
+      'Demo1234',
+    );
     await tester.tap(find.widgetWithText(FilledButton, 'Войти'));
     await tester.pumpAndSettle();
 

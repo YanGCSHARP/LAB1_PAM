@@ -15,11 +15,15 @@ class ExpenseBreakdownCard extends StatelessWidget {
     required this.totalExpense,
     required this.currency,
     super.key,
+    this.onCategoryTap,
   });
 
   final List<CategorySlice> slices;
   final double totalExpense;
   final String currency;
+
+  /// Called with a category key when its slice or legend row is tapped.
+  final ValueChanged<String>? onCategoryTap;
 
   @override
   Widget build(BuildContext context) {
@@ -51,9 +55,14 @@ class ExpenseBreakdownCard extends StatelessWidget {
                 slices: slices,
                 totalExpense: totalExpense,
                 currency: currency,
+                onCategoryTap: onCategoryTap,
               ),
               const SizedBox(height: 20),
-              _Legend(slices: slices, currency: currency),
+              _Legend(
+                slices: slices,
+                currency: currency,
+                onCategoryTap: onCategoryTap,
+              ),
             ],
           ],
         ),
@@ -67,11 +76,20 @@ class _Donut extends StatelessWidget {
     required this.slices,
     required this.totalExpense,
     required this.currency,
+    this.onCategoryTap,
   });
 
   final List<CategorySlice> slices;
   final double totalExpense;
   final String currency;
+  final ValueChanged<String>? onCategoryTap;
+
+  void _handleTouch(FlTouchEvent event, PieTouchResponse? response) {
+    final index = response?.touchedSection?.touchedSectionIndex ?? -1;
+    if (event is FlTapUpEvent && index >= 0 && index < slices.length) {
+      onCategoryTap?.call(slices[index].category);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -87,6 +105,10 @@ class _Donut extends StatelessWidget {
               sectionsSpace: 2,
               centerSpaceRadius: 62,
               startDegreeOffset: -90,
+              pieTouchData: PieTouchData(
+                enabled: onCategoryTap != null,
+                touchCallback: _handleTouch,
+              ),
               sections: [
                 for (final slice in slices)
                   PieChartSectionData(
@@ -123,10 +145,15 @@ class _Donut extends StatelessWidget {
 }
 
 class _Legend extends StatelessWidget {
-  const _Legend({required this.slices, required this.currency});
+  const _Legend({
+    required this.slices,
+    required this.currency,
+    this.onCategoryTap,
+  });
 
   final List<CategorySlice> slices;
   final String currency;
+  final ValueChanged<String>? onCategoryTap;
 
   @override
   Widget build(BuildContext context) {
@@ -135,42 +162,48 @@ class _Legend extends StatelessWidget {
     return Column(
       children: [
         for (final slice in slices)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 5),
-            child: Row(
-              children: [
-                Container(
-                  width: 10,
-                  height: 10,
-                  decoration: BoxDecoration(
-                    color: context.semantic.category(slice.category),
-                    borderRadius: BorderRadius.circular(3),
+          InkWell(
+            onTap: onCategoryTap == null
+                ? null
+                : () => onCategoryTap!(slice.category),
+            borderRadius: BorderRadius.circular(8),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 5),
+              child: Row(
+                children: [
+                  Container(
+                    width: 10,
+                    height: 10,
+                    decoration: BoxDecoration(
+                      color: context.semantic.category(slice.category),
+                      borderRadius: BorderRadius.circular(3),
+                    ),
                   ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    CategoryCatalog.labelOf(slice.category),
-                    style: theme.textTheme.bodyMedium,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      CategoryCatalog.labelOf(slice.category),
+                      style: theme.textTheme.bodyMedium,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  Formatters.percent(slice.share),
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
+                  const SizedBox(width: 8),
+                  Text(
+                    Formatters.percent(slice.share),
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                MoneyText(
-                  amount: slice.amount,
-                  currency: currency,
-                  compact: true,
-                  size: MoneySize.small,
-                ),
-              ],
+                  const SizedBox(width: 12),
+                  MoneyText(
+                    amount: slice.amount,
+                    currency: currency,
+                    compact: true,
+                    size: MoneySize.small,
+                  ),
+                ],
+              ),
             ),
           ),
       ],

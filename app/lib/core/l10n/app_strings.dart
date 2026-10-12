@@ -1,7 +1,7 @@
-/// All user-facing Russian strings in one place.
+/// Shared user-facing Russian strings.
 ///
-/// The project specification asks for `intl`/ARB localization; at this stage
-/// the screens are static, so the strings live here and `intl` is used only for
+/// The project specification asks for `intl`/ARB localization; until then the
+/// strings used on more than one screen live here and `intl` is used only for
 /// money and date formatting. Moving to ARB later means replacing the bodies of
 /// this file with `AppLocalizations` lookups, not editing every screen.
 abstract final class AppStrings {
@@ -13,6 +13,13 @@ abstract final class AppStrings {
   static const String edit = 'Изменить';
   static const String add = 'Добавить';
   static const String back = 'Назад';
+  static const String retry = 'Повторить';
+
+  // Unsaved changes
+  static const String discardTitle = 'Отменить изменения?';
+  static const String discardMessage =
+      'Введённые данные не сохранены и будут потеряны.';
+  static const String discard = 'Не сохранять';
 
   // Bottom navigation
   static const String navDashboard = 'Панель';
@@ -39,6 +46,21 @@ abstract final class AppStrings {
   static const String signUpAction = 'Зарегистрироваться';
   static const String emailHint = 'you@example.com';
   static const String displayNameHint = 'Как к вам обращаться';
+  static const String forgotPasswordUnavailable =
+      'Сброс пароля появится вместе с сервером';
+  static const String signOut = 'Выйти';
+  static const String signOutTitle = 'Выйти из аккаунта?';
+  static const String signOutMessage =
+      'Чтобы вернуться, понадобится снова ввести email и пароль.';
+
+  // Accounts
+  static const String accounts = 'Мои счета';
+
+  // Routing
+  static const String notFoundTitle = 'Страница не найдена';
+  static const String notFoundMessage =
+      'Ссылка устарела или набрана с ошибкой.';
+  static const String toDashboard = 'На главную';
 
   // Money
   static const String income = 'Доход';

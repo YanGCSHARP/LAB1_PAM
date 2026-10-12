@@ -23,6 +23,9 @@ dependencies:
   # Expense breakdown chart on the dashboard.
   fl_chart: ^1.1.1
 
+  # Declarative routes, the tab shell and deep links such as /transactions/:id.
+  go_router: ^18.0.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

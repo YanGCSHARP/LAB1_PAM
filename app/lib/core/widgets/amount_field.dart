@@ -19,6 +19,7 @@ class AmountField extends StatelessWidget {
     this.enabled = true,
     this.errorText,
     this.autofocus = false,
+    this.onChanged,
   });
 
   final String currency;
@@ -29,10 +30,12 @@ class AmountField extends StatelessWidget {
 
   final bool enabled;
 
-  /// Rendered under the field. Validation itself comes at the forms stage.
+  /// Rendered under the field; the owning form decides what it says.
   final String? errorText;
 
   final bool autofocus;
+
+  final ValueChanged<String>? onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -70,6 +73,7 @@ class AmountField extends StatelessWidget {
                   controller: controller,
                   enabled: enabled,
                   autofocus: autofocus,
+                  onChanged: onChanged,
                   textAlign: TextAlign.center,
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: true,

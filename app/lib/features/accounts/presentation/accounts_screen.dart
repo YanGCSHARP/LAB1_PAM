@@ -1,20 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../../core/l10n/app_strings.dart';
 import '../../../core/mock/mock_data.dart';
+import '../../../core/router/app_routes.dart';
 import '../../../core/widgets/account_card.dart';
 import '../../../core/widgets/money_text.dart';
 import '../../../core/widgets/state_views.dart';
-import 'account_form_screen.dart';
 
 /// List of the user's accounts with a per-currency total on top.
 class AccountsScreen extends StatelessWidget {
   const AccountsScreen({super.key});
 
   void _openForm(BuildContext context, {MockAccount? account}) {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => AccountFormScreen(account: account),
-      ),
+    context.push(
+      account == null
+          ? AppRoutes.accountNew
+          : AppRoutes.accountEdit(account.id),
     );
   }
 
@@ -34,7 +36,7 @@ class AccountsScreen extends StatelessWidget {
     final totals = _totalsByCurrency(mockAccounts);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Мои счета')),
+      appBar: AppBar(title: const Text(AppStrings.accounts)),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _openForm(context),
         icon: const Icon(Icons.add),

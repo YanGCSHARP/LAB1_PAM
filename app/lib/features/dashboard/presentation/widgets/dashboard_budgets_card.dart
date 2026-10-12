@@ -12,11 +12,15 @@ class DashboardBudgetsCard extends StatelessWidget {
     required this.currency,
     super.key,
     this.onSeeAll,
+    this.onBudgetTap,
   });
 
   final List<BudgetProgress> budgets;
   final String currency;
   final VoidCallback? onSeeAll;
+
+  /// Opens the transactions behind a budget; receives its category key.
+  final ValueChanged<String>? onBudgetTap;
 
   @override
   Widget build(BuildContext context) {
@@ -66,6 +70,9 @@ class DashboardBudgetsCard extends StatelessWidget {
                   spentAmount: item.spentAmount,
                   limitAmount: item.budget.limitAmount,
                   currency: currency,
+                  onTap: onBudgetTap == null
+                      ? null
+                      : () => onBudgetTap!(item.budget.category),
                 ),
                 if (item != budgets.last) const SizedBox(height: 18),
               ],

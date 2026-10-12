@@ -63,17 +63,24 @@ class AuthHeader extends StatelessWidget {
 
 /// Password field with a show/hide toggle.
 ///
-/// The toggle is local widget state — forms get real validation at the
-/// next stage.
+/// A [TextFormField], so it takes part in the enclosing [Form]'s validation.
 class PasswordField extends StatefulWidget {
   const PasswordField({
     required this.label,
     super.key,
+    this.controller,
+    this.validator,
     this.textInputAction = TextInputAction.done,
+    this.onFieldSubmitted,
+    this.autofillHints,
   });
 
   final String label;
+  final TextEditingController? controller;
+  final FormFieldValidator<String>? validator;
   final TextInputAction textInputAction;
+  final ValueChanged<String>? onFieldSubmitted;
+  final Iterable<String>? autofillHints;
 
   @override
   State<PasswordField> createState() => _PasswordFieldState();
@@ -84,9 +91,15 @@ class _PasswordFieldState extends State<PasswordField> {
 
   @override
   Widget build(BuildContext context) {
-    return TextField(
+    return TextFormField(
+      controller: widget.controller,
+      validator: widget.validator,
       obscureText: _obscured,
       textInputAction: widget.textInputAction,
+      onFieldSubmitted: widget.onFieldSubmitted,
+      autofillHints: widget.autofillHints,
+      autocorrect: false,
+      enableSuggestions: false,
       decoration: InputDecoration(
         labelText: widget.label,
         prefixIcon: const Icon(Icons.lock_outline),
