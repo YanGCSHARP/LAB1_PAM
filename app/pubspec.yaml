@@ -25,6 +25,8 @@ dependencies:
 
   # Declarative routes, the tab shell and deep links such as /transactions/:id.
   go_router: ^18.0.2
+  flutter_riverpod: ^3.4.3
+  equatable: ^2.1.0
 
 dev_dependencies:
   flutter_test:
