@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/l10n/app_strings.dart';
-import '../../../core/mock/mock_data.dart';
 import '../../../core/router/app_routes.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/design_tokens.dart';
@@ -14,14 +14,16 @@ import '../../../core/widgets/app_toast.dart';
 import '../../../core/widgets/category_badge.dart';
 import '../../../core/widgets/confirm_dialog.dart';
 import '../../../core/widgets/money_text.dart';
+import '../../../core/widgets/repository_action.dart';
+import '../application/transactions_providers.dart';
 
 /// One operation in full: amount, type, category, account, date, note.
-class TransactionDetailsScreen extends StatelessWidget {
-  const TransactionDetailsScreen({required this.transaction, super.key});
+class TransactionDetailsScreen extends ConsumerWidget {
+  const TransactionDetailsScreen({required this.details, super.key});
 
-  final MockTransaction transaction;
+  final TransactionDetails details;
 
-  Future<void> _confirmDelete(BuildContext context) async {
+  Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
     final confirmed = await showConfirmDialog(
       context,
       title: 'Удалить операцию?',
@@ -30,6 +32,15 @@ class TransactionDetailsScreen extends StatelessWidget {
       destructive: true,
     );
     if (!confirmed || !context.mounted) {
+      return;
+    }
+    final deleted = await runRepositoryAction(
+      context,
+      () => ref
+          .read(transactionsProvider.notifier)
+          .delete(details.transaction.id),
+    );
+    if (!deleted || !context.mounted) {
       return;
     }
     showAppToast(context, 'Операция удалена');
@@ -41,9 +52,9 @@ class TransactionDetailsScreen extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
-    final account = findMockAccount(transaction.accountId);
-    final currency = account?.currency ?? MockUser.defaultCurrency;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final (:transaction, :account) = details;
+    final currency = account?.currency ?? '';
     final isIncome = transaction.isIncome;
     final note = transaction.note;
 
@@ -139,7 +150,7 @@ class TransactionDetailsScreen extends StatelessWidget {
           const SizedBox(height: Insets.md),
           DestructiveButton(
             label: 'Удалить операцию',
-            onPressed: () => _confirmDelete(context),
+            onPressed: () => _confirmDelete(context, ref),
           ),
         ],
       ),

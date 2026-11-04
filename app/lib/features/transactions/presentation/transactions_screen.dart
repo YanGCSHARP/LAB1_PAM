@@ -1,17 +1,24 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/l10n/app_strings.dart';
-import '../../../core/mock/mock_data.dart';
 import '../../../core/router/app_routes.dart';
+import '../../../core/state/clock.dart';
 import '../../../core/theme/design_tokens.dart';
 import '../../../core/utils/category_catalog.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/app_filter_chip.dart';
 import '../../../core/widgets/app_sheet.dart';
+import '../../../core/widgets/async_views.dart';
 import '../../../core/widgets/category_badge.dart';
+import '../../../core/widgets/skeleton.dart';
 import '../../../core/widgets/state_views.dart';
 import '../../../core/widgets/transaction_row.dart';
+import '../../accounts/domain/account.dart';
+import '../../home/application/data_refresh.dart';
+import '../application/transactions_providers.dart';
+import '../domain/transaction.dart';
 import '../domain/transaction_filter.dart';
 
 /// All operations grouped by day, with search and filter chips.
@@ -19,7 +26,7 @@ import '../domain/transaction_filter.dart';
 /// The chip filters come from the URL ([filter]) and are changed by
 /// navigating to a new URL; only the search text is local, so typing does not
 /// flood the history with one entry per keystroke.
-class TransactionsScreen extends StatefulWidget {
+class TransactionsScreen extends ConsumerStatefulWidget {
   const TransactionsScreen({
     super.key,
     this.filter = const TransactionFilter(),
@@ -28,10 +35,10 @@ class TransactionsScreen extends StatefulWidget {
   final TransactionFilter filter;
 
   @override
-  State<TransactionsScreen> createState() => _TransactionsScreenState();
+  ConsumerState<TransactionsScreen> createState() => _TransactionsScreenState();
 }
 
-class _TransactionsScreenState extends State<TransactionsScreen> {
+class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
   final _search = TextEditingController();
 
   @override
@@ -116,13 +123,26 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     }
   }
 
+  /// Months that have at least one operation, newest first — the options of
+  /// the period filter.
+  List<DateTime> _monthsWithTransactions() {
+    final transactions = ref.read(transactionsProvider).value ?? const [];
+    return {
+      for (final transaction in transactions)
+        DateTime(
+          transaction.date.toLocal().year,
+          transaction.date.toLocal().month,
+        ),
+    }.toList()..sort((a, b) => b.compareTo(a));
+  }
+
   Future<void> _pickMonth() async {
     final picked = await _pick<String>(
       title: 'Период',
       current: _filter.month,
       options: [
         const _Option(label: 'За всё время', value: null),
-        for (final month in mockMonthsWithTransactions())
+        for (final month in _monthsWithTransactions())
           _Option(
             label: Formatters.monthTitle(month),
             value: Formatters.monthKey(month),
@@ -174,7 +194,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
     final effective = _filter.copyWith(
       query: () => search.isEmpty ? null : search,
     );
-    final transactions = effective.apply(mockTransactions);
+    final list = ref.watch(transactionListProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text(AppStrings.navTransactions)),
@@ -216,9 +236,29 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
             onReset: () => _applyFilter(const TransactionFilter()),
           ),
           Expanded(
-            child: transactions.isEmpty
-                ? _buildEmpty(effective)
-                : _GroupedList(transactions: transactions),
+            child: AsyncValueView(
+              value: list,
+              // Clipped by a list: on a short screen the six placeholder rows
+              // would otherwise overflow.
+              loading: ListView(
+                physics: const NeverScrollableScrollPhysics(),
+                children: const [TransactionListSkeleton()],
+              ),
+              data: (data) {
+                final transactions = effective.apply(data.transactions);
+                if (transactions.isEmpty) {
+                  return _buildEmpty(effective);
+                }
+                return RefreshIndicator(
+                  onRefresh: () => refreshAllData(ref),
+                  child: _GroupedList(
+                    transactions: transactions,
+                    accounts: data.accounts,
+                    today: ref.watch(todayProvider),
+                  ),
+                );
+              },
+            ),
           ),
         ],
       ),
@@ -323,10 +363,20 @@ class _FilterBar extends StatelessWidget {
 }
 
 class _GroupedList extends StatelessWidget {
-  const _GroupedList({required this.transactions});
+  const _GroupedList({
+    required this.transactions,
+    required this.accounts,
+    required this.today,
+  });
 
   /// Already sorted newest first.
-  final List<MockTransaction> transactions;
+  final List<Transaction> transactions;
+
+  /// Accounts by id, for the account name and currency of each row.
+  final Map<String, Account> accounts;
+
+  /// Decides which group is `Сегодня` and which is `Вчера`.
+  final DateTime today;
 
   @override
   Widget build(BuildContext context) {
@@ -338,15 +388,15 @@ class _GroupedList extends StatelessWidget {
       if (day != currentDay) {
         currentDay = day;
         children.add(
-          TransactionDateHeader(
-            label: Formatters.dayHeader(day, today: mockToday),
-          ),
+          TransactionDateHeader(label: Formatters.dayHeader(day, today: today)),
         );
       }
+      final account = accounts[transaction.accountId];
       children.add(
         TransactionRow(
           transaction: transaction,
-          accountName: findMockAccount(transaction.accountId)?.name,
+          currency: account?.currency ?? '',
+          accountName: account?.name,
           onTap: () => context.push(AppRoutes.transaction(transaction.id)),
         ),
       );
@@ -354,6 +404,7 @@ class _GroupedList extends StatelessWidget {
 
     // Bottom padding keeps the last row clear of the floating button.
     return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.only(bottom: 96),
       children: children,
     );

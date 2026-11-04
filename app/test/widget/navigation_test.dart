@@ -7,6 +7,8 @@ import 'package:walletmate/core/widgets/amount_field.dart';
 import 'package:walletmate/core/widgets/app_buttons.dart';
 import 'package:walletmate/core/widgets/app_filter_chip.dart';
 
+import '../helpers/test_app.dart';
+
 Future<void> _open(
   WidgetTester tester,
   String location, {
@@ -19,7 +21,7 @@ Future<void> _open(
   addTearDown(tester.view.resetDevicePixelRatio);
 
   await tester.pumpWidget(
-    WalletMateApp(signedIn: signedIn, initialLocation: location),
+    withProviders(WalletMateApp(signedIn: signedIn, initialLocation: location)),
   );
   await tester.pumpAndSettle();
 }
@@ -113,7 +115,7 @@ void main() {
       await _open(tester, '/transactions/tx-01');
 
       expect(find.text('Операция'), findsOneWidget);
-      expect(find.text('Стипендия за сентябрь'), findsOneWidget);
+      expect(find.text('Стипендия УТМ'), findsOneWidget);
     });
 
     testWidgets('an unknown path shows the 404 screen', (tester) async {
@@ -162,7 +164,7 @@ void main() {
       );
       expect(chip.selected, isTrue);
       expect(find.text('Аренда квартиры'), findsOneWidget);
-      expect(find.text('Стипендия за сентябрь'), findsNothing);
+      expect(find.text('Стипендия УТМ'), findsNothing);
     });
 
     testWidgets('the accounts screen opens from the profile', (tester) async {

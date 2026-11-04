@@ -6,7 +6,13 @@ import 'package:walletmate/core/theme/app_theme.dart';
 import 'package:walletmate/core/utils/formatters.dart';
 import 'package:walletmate/features/dashboard/presentation/dashboard_screen.dart';
 
+import '../helpers/test_app.dart';
+
 Widget _wrap(Widget child, {Brightness brightness = Brightness.light}) {
+  return withProviders(_app(child, brightness: brightness));
+}
+
+Widget _app(Widget child, {required Brightness brightness}) {
   return MaterialApp(
     theme: brightness == Brightness.light ? AppTheme.light : AppTheme.dark,
     locale: const Locale(Formatters.locale),

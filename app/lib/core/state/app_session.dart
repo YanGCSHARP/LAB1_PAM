@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// Whether someone is signed in.
 ///
@@ -6,6 +7,9 @@ import 'package:flutter/material.dart';
 /// moves the user between the auth screens and the app. At this stage the flag
 /// lives in memory only — on L5 it is backed by a JWT in secure storage, and
 /// nothing outside this class has to change.
+///
+/// It stays a [ChangeNotifier] rather than a Riverpod notifier because
+/// `GoRouter.refreshListenable` takes a [Listenable].
 class AuthSession extends ChangeNotifier {
   AuthSession([this._signedIn = false]);
 
@@ -30,9 +34,23 @@ class AuthSession extends ChangeNotifier {
   }
 }
 
+final authSessionProvider = Provider<AuthSession>((ref) {
+  final session = AuthSession();
+  ref.onDispose(session.dispose);
+  return session;
+});
+
 /// Theme picked on the profile screen: system, light or dark.
 ///
-/// A plain [ValueNotifier] until the state layer (L4) takes it over.
-class ThemeController extends ValueNotifier<ThemeMode> {
-  ThemeController([super.value = ThemeMode.system]);
+/// Kept in memory; it survives switching tabs but not a restart — saving it
+/// on the device is part of the offline storage of L6.
+final themeModeProvider = NotifierProvider<ThemeModeNotifier, ThemeMode>(
+  ThemeModeNotifier.new,
+);
+
+class ThemeModeNotifier extends Notifier<ThemeMode> {
+  @override
+  ThemeMode build() => ThemeMode.system;
+
+  void select(ThemeMode mode) => state = mode;
 }

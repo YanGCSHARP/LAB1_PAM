@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../mock/mock_data.dart';
+import '../../features/accounts/domain/account.dart';
 import '../theme/app_theme.dart';
 import '../theme/design_tokens.dart';
 import 'money_text.dart';
@@ -30,9 +30,18 @@ import 'money_text.dart';
 /// [width] fixed — the horizontal strip on the dashboard; [width] null — a
 /// full-width tile on the accounts screen.
 class AccountCard extends StatelessWidget {
-  const AccountCard({required this.account, super.key, this.onTap, this.width});
+  const AccountCard({
+    required this.account,
+    required this.balance,
+    super.key,
+    this.onTap,
+    this.width,
+  });
 
-  final MockAccount account;
+  final Account account;
+
+  /// Current balance — derived from the operations, so passed in separately.
+  final double balance;
   final VoidCallback? onTap;
   final double? width;
 
@@ -77,7 +86,7 @@ class AccountCard extends StatelessWidget {
               ),
               const SizedBox(height: Insets.lg),
               MoneyText(
-                amount: account.balance,
+                amount: balance,
                 currency: account.currency,
                 size: MoneySize.large,
               ),

@@ -1,21 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../features/accounts/application/accounts_providers.dart';
 import '../../features/accounts/presentation/account_form_screen.dart';
 import '../../features/accounts/presentation/accounts_screen.dart';
 import '../../features/auth/presentation/login_screen.dart';
 import '../../features/auth/presentation/register_screen.dart';
+import '../../features/budgets/application/budgets_providers.dart';
 import '../../features/budgets/presentation/budget_form_screen.dart';
 import '../../features/budgets/presentation/budgets_screen.dart';
 import '../../features/dashboard/presentation/dashboard_screen.dart';
 import '../../features/home/presentation/home_shell.dart';
 import '../../features/profile/presentation/profile_screen.dart';
+import '../../features/transactions/application/transactions_providers.dart';
 import '../../features/transactions/domain/transaction_filter.dart';
 import '../../features/transactions/presentation/transaction_details_screen.dart';
 import '../../features/transactions/presentation/transaction_form_screen.dart';
 import '../../features/transactions/presentation/transactions_screen.dart';
-import '../mock/mock_data.dart';
 import '../state/app_session.dart';
+import '../widgets/async_views.dart';
 import 'app_routes.dart';
 import 'not_found_screen.dart';
 
@@ -41,9 +44,11 @@ String? authRedirect({required bool signedIn, required String location}) {
 /// navigation stack and scroll position while another tab is open. Forms are
 /// placed on the root navigator, so they cover the bottom bar — a half-filled
 /// form should not be one tap away from switching tabs.
+///
+/// Routes with an `:id` hand the id to a [RecordPage], which loads the record
+/// through its provider and shows "not found" for an id that matches nothing.
 GoRouter createAppRouter({
   required AuthSession session,
-  required ThemeController theme,
   String initialLocation = AppRoutes.login,
 }) {
   final rootKey = GlobalKey<NavigatorState>(debugLabel: 'root');
@@ -91,30 +96,36 @@ GoRouter createAppRouter({
                   GoRoute(
                     path: 'new',
                     parentNavigatorKey: rootKey,
-                    builder: (context, state) => const TransactionFormScreen(),
+                    builder: (context, state) =>
+                        RecordPage<TransactionFormData>(
+                          provider: transactionFormDataProvider(null),
+                          builder: (context, data) =>
+                              TransactionFormScreen(accounts: data.accounts),
+                        ),
                   ),
                   GoRoute(
                     path: ':id',
-                    builder: (context, state) {
-                      final transaction = findMockTransaction(
+                    builder: (context, state) => RecordPage<TransactionDetails>(
+                      provider: transactionDetailsProvider(
                         state.pathParameters['id']!,
-                      );
-                      return transaction == null
-                          ? const NotFoundScreen()
-                          : TransactionDetailsScreen(transaction: transaction);
-                    },
+                      ),
+                      builder: (context, details) =>
+                          TransactionDetailsScreen(details: details),
+                    ),
                     routes: [
                       GoRoute(
                         path: 'edit',
                         parentNavigatorKey: rootKey,
-                        builder: (context, state) {
-                          final transaction = findMockTransaction(
-                            state.pathParameters['id']!,
-                          );
-                          return transaction == null
-                              ? const NotFoundScreen()
-                              : TransactionFormScreen(transaction: transaction);
-                        },
+                        builder: (context, state) =>
+                            RecordPage<TransactionFormData>(
+                              provider: transactionFormDataProvider(
+                                state.pathParameters['id'],
+                              ),
+                              builder: (context, data) => TransactionFormScreen(
+                                accounts: data.accounts,
+                                transaction: data.transaction,
+                              ),
+                            ),
                       ),
                     ],
                   ),
@@ -133,21 +144,28 @@ GoRouter createAppRouter({
                   GoRoute(
                     path: 'new',
                     parentNavigatorKey: rootKey,
-                    builder: (context, state) => BudgetFormScreen(
-                      initialMonth: state.uri.queryParameters['month'],
+                    builder: (context, state) => RecordPage<BudgetFormData>(
+                      provider: budgetFormDataProvider(null),
+                      builder: (context, data) => BudgetFormScreen(
+                        budgets: data.budgets,
+                        currency: data.currency,
+                        initialMonth: state.uri.queryParameters['month'],
+                      ),
                     ),
                   ),
                   GoRoute(
                     path: ':id/edit',
                     parentNavigatorKey: rootKey,
-                    builder: (context, state) {
-                      final budget = findMockBudget(
-                        state.pathParameters['id']!,
-                      );
-                      return budget == null
-                          ? const NotFoundScreen()
-                          : BudgetFormScreen(budget: budget);
-                    },
+                    builder: (context, state) => RecordPage<BudgetFormData>(
+                      provider: budgetFormDataProvider(
+                        state.pathParameters['id'],
+                      ),
+                      builder: (context, data) => BudgetFormScreen(
+                        budgets: data.budgets,
+                        currency: data.currency,
+                        budget: data.budget,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -157,8 +175,7 @@ GoRouter createAppRouter({
             routes: [
               GoRoute(
                 path: AppRoutes.profile,
-                builder: (context, state) =>
-                    ProfileScreen(session: session, theme: theme),
+                builder: (context, state) => const ProfileScreen(),
               ),
             ],
           ),
@@ -173,16 +190,22 @@ GoRouter createAppRouter({
         routes: [
           GoRoute(
             path: 'new',
-            builder: (context, state) => const AccountFormScreen(),
+            builder: (context, state) => RecordPage<AccountFormData>(
+              provider: accountFormDataProvider(null),
+              builder: (context, data) =>
+                  AccountFormScreen(accounts: data.accounts),
+            ),
           ),
           GoRoute(
             path: ':id/edit',
-            builder: (context, state) {
-              final account = findMockAccount(state.pathParameters['id']!);
-              return account == null
-                  ? const NotFoundScreen()
-                  : AccountFormScreen(account: account);
-            },
+            builder: (context, state) => RecordPage<AccountFormData>(
+              provider: accountFormDataProvider(state.pathParameters['id']),
+              builder: (context, data) => AccountFormScreen(
+                accounts: data.accounts,
+                account: data.account,
+                operationCount: data.operationCount,
+              ),
+            ),
           ),
         ],
       ),

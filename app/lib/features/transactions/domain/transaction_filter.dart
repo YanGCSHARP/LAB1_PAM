@@ -1,8 +1,8 @@
 import 'package:flutter/foundation.dart';
 
-import '../../../core/mock/mock_data.dart';
 import '../../../core/utils/category_catalog.dart';
 import '../../../core/utils/formatters.dart';
+import 'transaction.dart';
 
 /// Filters of the transactions list.
 ///
@@ -76,7 +76,7 @@ class TransactionFilter {
     );
   }
 
-  bool matches(MockTransaction transaction) {
+  bool matches(Transaction transaction) {
     if (kind != null && transaction.kind != kind) {
       return false;
     }
@@ -102,7 +102,7 @@ class TransactionFilter {
   }
 
   /// Matching transactions, newest first.
-  List<MockTransaction> apply(Iterable<MockTransaction> transactions) {
+  List<Transaction> apply(Iterable<Transaction> transactions) {
     return transactions.where(matches).toList()
       ..sort((a, b) => b.date.compareTo(a.date));
   }

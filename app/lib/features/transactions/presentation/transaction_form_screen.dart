@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/l10n/app_strings.dart';
-import '../../../core/mock/mock_data.dart';
 import '../../../core/router/app_routes.dart';
+import '../../../core/state/clock.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/design_tokens.dart';
 import '../../../core/utils/category_catalog.dart';
@@ -16,8 +17,12 @@ import '../../../core/widgets/app_sheet.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../core/widgets/category_badge.dart';
 import '../../../core/widgets/confirm_dialog.dart';
+import '../../../core/widgets/repository_action.dart';
 import '../../../core/widgets/selector_field.dart';
 import '../../../core/widgets/type_switch.dart';
+import '../../accounts/domain/account.dart';
+import '../application/transactions_providers.dart';
+import '../domain/transaction.dart';
 
 /// Create / edit form for an operation.
 ///
@@ -25,38 +30,56 @@ import '../../../core/widgets/type_switch.dart';
 /// anything is invalid, and leaving with unsaved edits asks first. The picker
 /// fields are [FormField]s too, so their errors render the same way as a text
 /// field's.
-class TransactionFormScreen extends StatefulWidget {
-  const TransactionFormScreen({super.key, this.transaction});
+class TransactionFormScreen extends ConsumerStatefulWidget {
+  const TransactionFormScreen({
+    required this.accounts,
+    super.key,
+    this.transaction,
+  });
+
+  /// Accounts the operation can be recorded on.
+  final List<Account> accounts;
 
   /// `null` means "new operation".
-  final MockTransaction? transaction;
+  final Transaction? transaction;
 
   @override
-  State<TransactionFormScreen> createState() => _TransactionFormScreenState();
+  ConsumerState<TransactionFormScreen> createState() =>
+      _TransactionFormScreenState();
 }
 
-class _TransactionFormScreenState extends State<TransactionFormScreen> {
+class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   final _categoryKey = GlobalKey<FormFieldState<String>>();
 
-  late final MockTransaction? _initial = widget.transaction;
+  late final Transaction? _initial = widget.transaction;
 
   late TransactionKind _kind = _initial?.kind ?? TransactionKind.expense;
   late final TextEditingController _amount = TextEditingController(
     text: _initial == null ? null : Formatters.amountInput(_initial.amount),
   );
   late String? _category = _initial?.category;
-  late String? _accountId = _initial?.accountId ?? mockAccounts.first.id;
+  late String? _accountId = _initial?.accountId ?? _defaultAccountId;
   late DateTime? _date = _initialDate;
   late final TextEditingController _note = TextEditingController(
     text: _initial?.note,
   );
 
+  /// A save is in flight.
+  bool _saving = false;
+
   bool get _isEditing => _initial != null;
 
+  /// A new operation goes to the first account unless another is picked.
+  String? get _defaultAccountId => widget.accounts.firstOrNull?.id;
+
   DateTime get _initialDate {
-    final source = _initial?.date.toLocal() ?? DateTime.now();
+    final DateTime source =
+        _initial?.date.toLocal() ?? ref.read<DateTime>(todayProvider);
     return DateTime(source.year, source.month, source.day);
   }
+
+  Account? _accountById(String? id) =>
+      widget.accounts.where((account) => account.id == id).firstOrNull;
 
   @override
   void initState() {
@@ -74,8 +97,7 @@ class _TransactionFormScreenState extends State<TransactionFormScreen> {
 
   void _refresh() => setState(() {});
 
-  String get _currency =>
-      findMockAccount(_accountId ?? '')?.currency ?? MockUser.defaultCurrency;
+  String get _currency => _accountById(_accountId)?.currency ?? '';
 
   String? _validateCategory(String? value) =>
       Validators.selected(value, 'Выберите категорию');
@@ -98,7 +120,7 @@ class _TransactionFormScreenState extends State<TransactionFormScreen> {
           _category != null ||
           note.isNotEmpty ||
           _kind != TransactionKind.expense ||
-          _accountId != mockAccounts.first.id ||
+          _accountId != _defaultAccountId ||
           _date != _initialDate;
     }
     return Validators.parseAmount(_amount.text) != initial.amount ||
@@ -155,7 +177,7 @@ class _TransactionFormScreenState extends State<TransactionFormScreen> {
       builder: (sheetContext) => ListView(
         shrinkWrap: true,
         children: [
-          for (final account in mockAccounts)
+          for (final account in widget.accounts)
             SheetOption(
               label: account.name,
               selected: account.id == _accountId,
@@ -190,7 +212,54 @@ class _TransactionFormScreenState extends State<TransactionFormScreen> {
     }
   }
 
-  void _save() {
+  Future<void> _save() async {
+    setState(() => _saving = true);
+    final transactions = ref.read(transactionsProvider.notifier);
+    final initial = _initial;
+    final amount = Validators.parseAmount(_amount.text)!;
+    final note = _note.text.trim();
+    // The picked day keeps the original time of an edited operation; a new
+    // one gets the current time, so operations of one day stay in order.
+    final time = initial?.date.toLocal() ?? DateTime.now();
+    final day = _date!;
+    final date = DateTime(
+      day.year,
+      day.month,
+      day.day,
+      time.hour,
+      time.minute,
+    ).toUtc();
+
+    final saved = await runRepositoryAction(context, () async {
+      if (initial == null) {
+        await transactions.add(
+          accountId: _accountId!,
+          amount: amount,
+          kind: _kind,
+          category: _category!,
+          date: date,
+          note: note.isEmpty ? null : note,
+        );
+      } else {
+        await transactions.save(
+          initial.copyWith(
+            accountId: _accountId,
+            amount: amount,
+            kind: _kind,
+            category: _category,
+            date: date,
+            note: () => note.isEmpty ? null : note,
+          ),
+        );
+      }
+    });
+    if (!mounted) {
+      return;
+    }
+    setState(() => _saving = false);
+    if (!saved) {
+      return;
+    }
     showAppToast(
       context,
       _isEditing ? 'Изменения сохранены' : 'Операция добавлена',
@@ -268,7 +337,7 @@ class _TransactionFormScreenState extends State<TransactionFormScreen> {
                 initialValue: _accountId,
                 validator: _validateAccount,
                 builder: (field) {
-                  final account = findMockAccount(_accountId ?? '');
+                  final account = _accountById(_accountId);
                   return SelectorField(
                     label: 'Счёт',
                     value: account == null
@@ -317,6 +386,7 @@ class _TransactionFormScreenState extends State<TransactionFormScreen> {
               const SizedBox(height: Insets.xl),
               PrimaryButton(
                 label: AppStrings.save,
+                loading: _saving,
                 onPressed: _isValid ? _save : null,
               ),
             ],

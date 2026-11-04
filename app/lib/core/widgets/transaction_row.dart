@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../mock/mock_data.dart';
+import '../../features/transactions/domain/transaction.dart';
 import '../theme/app_theme.dart';
 import '../theme/design_tokens.dart';
 import '../utils/category_catalog.dart';
@@ -14,13 +14,17 @@ import 'money_text.dart';
 class TransactionRow extends StatelessWidget {
   const TransactionRow({
     required this.transaction,
+    required this.currency,
     super.key,
     this.accountName,
     this.onTap,
     this.showCategoryName = true,
   });
 
-  final MockTransaction transaction;
+  final Transaction transaction;
+
+  /// Currency of the operation's account.
+  final String currency;
 
   /// Shown after the category, when the list mixes several accounts.
   final String? accountName;
@@ -87,7 +91,7 @@ class TransactionRow extends StatelessWidget {
             const SizedBox(width: Insets.md),
             MoneyText(
               amount: transaction.amount,
-              currency: accountCurrency(transaction.accountId),
+              currency: currency,
               isIncome: transaction.isIncome,
               // An expense keeps the default text color: a list where every
               // second row is red is unreadable. Only income is tinted.
@@ -99,9 +103,6 @@ class TransactionRow extends StatelessWidget {
     );
   }
 }
-
-/// Currency of the account a transaction belongs to.
-String accountCurrency(String accountId) => mockAccountById(accountId).currency;
 
 /// Sticky-looking date header above a group of transactions.
 class TransactionDateHeader extends StatelessWidget {

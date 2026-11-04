@@ -1,8 +1,10 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/data/mock/mock_providers.dart';
 import '../../../core/l10n/app_strings.dart';
-import '../../../core/mock/mock_data.dart';
 import '../../../core/router/app_routes.dart';
 import '../../../core/state/app_session.dart';
 import '../../../core/theme/app_theme.dart';
@@ -13,49 +15,48 @@ import '../../../core/widgets/app_buttons.dart';
 import '../../../core/widgets/app_card.dart';
 import '../../../core/widgets/app_sheet.dart';
 import '../../../core/widgets/app_toast.dart';
+import '../../../core/widgets/async_views.dart';
 import '../../../core/widgets/confirm_dialog.dart';
+import '../../../core/widgets/repository_action.dart';
+import '../../../core/widgets/skeleton.dart';
+import '../application/profile_providers.dart';
+import '../domain/user_profile.dart';
 
 /// User data, default currency, theme and sign-out.
 ///
-/// The theme switch is live — it drives the app's [ThemeMode]. The name and
-/// the currency change on screen only; they are persisted once the profile
-/// has a repository (L4) and an endpoint (L5).
-class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({required this.session, required this.theme, super.key});
+/// The name and the currency are saved through the profile repository; the
+/// currency also re-computes the dashboard and the budgets, which count only
+/// accounts in it. The theme is applied at once and kept for the session.
+class ProfileScreen extends ConsumerWidget {
+  const ProfileScreen({super.key});
 
-  final AuthSession session;
-  final ThemeController theme;
-
-  @override
-  State<ProfileScreen> createState() => _ProfileScreenState();
-}
-
-class _ProfileScreenState extends State<ProfileScreen> {
-  String _displayName = MockUser.displayName;
-  String _currency = MockUser.defaultCurrency;
-
-  String get _initials {
-    final parts = _displayName.trim().split(RegExp(r'\s+'));
-    return parts
-        .where((part) => part.isNotEmpty)
-        .take(2)
-        .map((part) => part[0].toUpperCase())
-        .join();
-  }
-
-  Future<void> _editName() async {
+  Future<void> _editName(
+    BuildContext context,
+    WidgetRef ref,
+    UserProfile profile,
+  ) async {
     final name = await showAppSheet<String>(
       context: context,
       title: 'Имя',
-      builder: (_) => _NameForm(initial: _displayName),
+      builder: (_) => _NameForm(initial: profile.displayName),
     );
-    if (name != null && name != _displayName && mounted) {
-      setState(() => _displayName = name);
+    if (name == null || name == profile.displayName || !context.mounted) {
+      return;
+    }
+    final saved = await runRepositoryAction(
+      context,
+      () => ref.read(profileProvider.notifier).rename(name),
+    );
+    if (saved && context.mounted) {
       showAppToast(context, 'Имя обновлено', tone: ToastTone.success);
     }
   }
 
-  Future<void> _pickCurrency() async {
+  Future<void> _pickCurrency(
+    BuildContext context,
+    WidgetRef ref,
+    UserProfile profile,
+  ) async {
     final picked = await showAppSheet<String>(
       context: context,
       title: 'Валюта по умолчанию',
@@ -65,7 +66,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           for (final currency in Formatters.currencies)
             SheetOption(
               label: currency,
-              selected: currency == _currency,
+              selected: currency == profile.defaultCurrency,
               trailing: Text(
                 Formatters.currencySymbol(currency),
                 style: sheetContext.texts.bodySmall,
@@ -75,12 +76,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ],
       ),
     );
-    if (picked != null && picked != _currency) {
-      setState(() => _currency = picked);
+    if (picked == null ||
+        picked == profile.defaultCurrency ||
+        !context.mounted) {
+      return;
     }
+    await runRepositoryAction(
+      context,
+      () => ref.read(profileProvider.notifier).changeCurrency(picked),
+    );
   }
 
-  Future<void> _signOut() async {
+  Future<void> _signOut(BuildContext context, WidgetRef ref) async {
     final confirmed = await showConfirmDialog(
       context,
       title: AppStrings.signOutTitle,
@@ -89,12 +96,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
     if (confirmed) {
       // The router's redirect sees the session change and opens /login.
-      widget.session.signOut();
+      ref.read(authSessionProvider).signOut();
     }
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final profile = ref.watch(profileProvider);
+
     return Scaffold(
       appBar: AppBar(title: const Text(AppStrings.navProfile)),
       body: ListView(
@@ -105,57 +114,76 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Insets.xxl,
         ),
         children: [
-          AppCard(
-            onTap: _editName,
-            child: Row(
+          AsyncValueView(
+            value: profile,
+            loading: const CardSkeleton(height: 168),
+            data: (profile) => Column(
               children: [
-                CircleAvatar(
-                  radius: 28,
-                  backgroundColor: context.colors.primaryContainer,
-                  foregroundColor: context.colors.onPrimaryContainer,
-                  child: Text(_initials, style: context.texts.titleMedium),
-                ),
-                const SizedBox(width: Insets.lg),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                AppCard(
+                  onTap: () => _editName(context, ref, profile),
+                  child: Row(
                     children: [
-                      Text(
-                        _displayName,
-                        style: context.texts.titleMedium,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                      CircleAvatar(
+                        radius: 28,
+                        backgroundColor: context.colors.primaryContainer,
+                        foregroundColor: context.colors.onPrimaryContainer,
+                        child: Text(
+                          profile.initials,
+                          style: context.texts.titleMedium,
+                        ),
                       ),
-                      const SizedBox(height: Insets.xs),
-                      Text(
-                        MockUser.email,
-                        style: context.texts.bodySmall,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                      const SizedBox(width: Insets.lg),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              profile.displayName,
+                              style: context.texts.titleMedium,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: Insets.xs),
+                            Text(
+                              profile.email,
+                              style: context.texts.bodySmall,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                      Icon(
+                        Icons.edit_outlined,
+                        color: context.semantic.textMuted,
                       ),
                     ],
                   ),
                 ),
-                Icon(Icons.edit_outlined, color: context.semantic.textMuted),
-              ],
-            ),
-          ),
-          const SizedBox(height: Insets.lg),
-          AppCard(
-            padding: const EdgeInsets.symmetric(vertical: Insets.xs),
-            child: Column(
-              children: [
-                ListTile(
-                  leading: const Icon(Icons.account_balance_wallet_outlined),
-                  title: const Text(AppStrings.accounts),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => context.push(AppRoutes.accounts),
-                ),
-                ListTile(
-                  leading: const Icon(Icons.currency_exchange),
-                  title: const Text('Валюта по умолчанию'),
-                  trailing: Text(_currency, style: context.texts.bodyMedium),
-                  onTap: _pickCurrency,
+                const SizedBox(height: Insets.lg),
+                AppCard(
+                  padding: const EdgeInsets.symmetric(vertical: Insets.xs),
+                  child: Column(
+                    children: [
+                      ListTile(
+                        leading: const Icon(
+                          Icons.account_balance_wallet_outlined,
+                        ),
+                        title: const Text(AppStrings.accounts),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () => context.push(AppRoutes.accounts),
+                      ),
+                      ListTile(
+                        leading: const Icon(Icons.currency_exchange),
+                        title: const Text('Валюта по умолчанию'),
+                        trailing: Text(
+                          profile.defaultCurrency,
+                          style: context.texts.bodyMedium,
+                        ),
+                        onTap: () => _pickCurrency(context, ref, profile),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -163,41 +191,58 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const SizedBox(height: Insets.lg),
           AppCard(
             title: 'Тема',
-            child: ValueListenableBuilder<ThemeMode>(
-              valueListenable: widget.theme,
-              builder: (context, mode, _) => SizedBox(
-                width: double.infinity,
-                child: SegmentedButton<ThemeMode>(
-                  segments: const [
-                    ButtonSegment(
-                      value: ThemeMode.system,
-                      label: Text('Система'),
-                      icon: Icon(Icons.brightness_auto_outlined),
-                    ),
-                    ButtonSegment(
-                      value: ThemeMode.light,
-                      label: Text('Светлая'),
-                      icon: Icon(Icons.light_mode_outlined),
-                    ),
-                    ButtonSegment(
-                      value: ThemeMode.dark,
-                      label: Text('Тёмная'),
-                      icon: Icon(Icons.dark_mode_outlined),
-                    ),
-                  ],
-                  selected: {mode},
-                  showSelectedIcon: false,
-                  onSelectionChanged: (selection) =>
-                      widget.theme.value = selection.single,
-                ),
+            child: SizedBox(
+              width: double.infinity,
+              child: SegmentedButton<ThemeMode>(
+                segments: const [
+                  ButtonSegment(
+                    value: ThemeMode.system,
+                    label: Text('Система'),
+                    icon: Icon(Icons.brightness_auto_outlined),
+                  ),
+                  ButtonSegment(
+                    value: ThemeMode.light,
+                    label: Text('Светлая'),
+                    icon: Icon(Icons.light_mode_outlined),
+                  ),
+                  ButtonSegment(
+                    value: ThemeMode.dark,
+                    label: Text('Тёмная'),
+                    icon: Icon(Icons.dark_mode_outlined),
+                  ),
+                ],
+                selected: {ref.watch(themeModeProvider)},
+                showSelectedIcon: false,
+                onSelectionChanged: (selection) => ref
+                    .read(themeModeProvider.notifier)
+                    .select(selection.single),
               ),
             ),
           ),
+          // Lets a demo show the error states without pulling the cable.
+          // Debug builds only; it goes away with the mock backend on L5.
+          if (kDebugMode) ...[
+            const SizedBox(height: Insets.lg),
+            AppCard(
+              padding: const EdgeInsets.symmetric(vertical: Insets.xs),
+              child: SwitchListTile(
+                secondary: const Icon(Icons.wifi_off_outlined),
+                title: const Text('Имитировать сбой сети'),
+                subtitle: const Text(
+                  'Для разработчика: запросы к данным будут падать',
+                ),
+                value: ref.watch(simulateOfflineProvider),
+                onChanged: (offline) => ref
+                    .read(simulateOfflineProvider.notifier)
+                    .set(offline: offline),
+              ),
+            ),
+          ],
           const SizedBox(height: Insets.xl),
           DestructiveButton(
             label: AppStrings.signOut,
             icon: Icons.logout,
-            onPressed: _signOut,
+            onPressed: () => _signOut(context, ref),
           ),
         ],
       ),

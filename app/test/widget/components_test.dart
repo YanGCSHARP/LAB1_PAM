@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
-import 'package:walletmate/core/mock/mock_data.dart';
 import 'package:walletmate/core/theme/app_theme.dart';
 import 'package:walletmate/core/utils/category_catalog.dart';
 import 'package:walletmate/core/utils/formatters.dart';
@@ -21,6 +20,8 @@ import 'package:walletmate/core/widgets/skeleton.dart';
 import 'package:walletmate/core/widgets/state_views.dart';
 import 'package:walletmate/core/widgets/transaction_row.dart';
 import 'package:walletmate/core/widgets/type_switch.dart';
+
+import '../helpers/test_app.dart';
 
 Widget _host(Widget child, {required Brightness brightness}) {
   return MaterialApp(
@@ -101,9 +102,14 @@ Widget _gallery() {
           currency: 'MDL',
         ),
       ),
-      AccountCard(account: mockAccounts.first, onTap: () {}),
+      AccountCard(
+        account: testSeed.accounts.first,
+        balance: 4210.5,
+        onTap: () {},
+      ),
       TransactionRow(
-        transaction: mockTransactions.first,
+        transaction: testSeed.transactions.first,
+        currency: 'MDL',
         accountName: 'Карта Maib',
         onTap: () {},
       ),
