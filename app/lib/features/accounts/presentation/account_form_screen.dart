@@ -197,18 +197,15 @@ class _AccountFormScreenState extends ConsumerState<AccountFormScreen> {
                 segments: const [
                   ButtonSegment(
                     value: AccountKind.card,
-                    label: Text('Карта'),
-                    icon: Icon(Icons.credit_card),
+                    label: Text('Карта', maxLines: 1),
                   ),
                   ButtonSegment(
                     value: AccountKind.cash,
-                    label: Text('Наличные'),
-                    icon: Icon(Icons.payments_outlined),
+                    label: Text('Наличные', maxLines: 1),
                   ),
                   ButtonSegment(
                     value: AccountKind.savings,
-                    label: Text('Вклад'),
-                    icon: Icon(Icons.savings_outlined),
+                    label: Text('Вклад', maxLines: 1),
                   ),
                 ],
                 selected: {_kind},
