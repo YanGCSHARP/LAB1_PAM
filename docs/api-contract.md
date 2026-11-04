@@ -102,24 +102,31 @@
 
 ```json
 [
-  { "id": "1b8f...", "name": "Карта Maib", "currency": "MDL", "balance": 4210.50 },
-  { "id": "2c9a...", "name": "Наличные",   "currency": "MDL", "balance": 780.00 },
-  { "id": "3d7e...", "name": "Сбережения", "currency": "EUR", "balance": 350.00 }
+  { "id": "1b8f...", "name": "Карта Maib", "currency": "MDL", "kind": "card",
+    "initialBalance": 1250.00, "balance": 4210.50 },
+  { "id": "2c9a...", "name": "Наличные",   "currency": "MDL", "kind": "cash",
+    "initialBalance": 1500.00, "balance": 780.00 },
+  { "id": "3d7e...", "name": "Сбережения", "currency": "EUR", "kind": "savings",
+    "initialBalance": 250.00, "balance": 350.00 }
 ]
 ```
+
+`kind` — тип счёта (`card` | `cash` | `savings`), добавлен на L4: по нему клиент
+выбирает иконку. `balance` вычисляется сервером из `initialBalance` и транзакций.
 
 ### POST `/accounts`
 
 **Запрос**
 
 ```json
-{ "name": "Карта Maib", "currency": "MDL", "initialBalance": 4000.00 }
+{ "name": "Карта Maib", "currency": "MDL", "kind": "card", "initialBalance": 4000.00 }
 ```
 
 **Ответ `201 Created`**, заголовок `Location: /api/accounts/1b8f...`
 
 ```json
-{ "id": "1b8f...", "name": "Карта Maib", "currency": "MDL", "balance": 4000.00 }
+{ "id": "1b8f...", "name": "Карта Maib", "currency": "MDL", "kind": "card",
+  "initialBalance": 4000.00, "balance": 4000.00 }
 ```
 
 `initialBalance` необязателен (по умолчанию `0`) и сохраняется как стартовая
@@ -134,10 +141,11 @@
 **Запрос**
 
 ```json
-{ "name": "Карта Maib (основная)", "currency": "MDL" }
+{ "name": "Карта Maib (основная)", "currency": "MDL", "kind": "card" }
 ```
 
-**Ответ `200 OK`** — обновлённый объект. **Ошибки:** `400`, `404`.
+**Ответ `200 OK`** — обновлённый объект. **Ошибки:** `400`, `404`, `409` — счёт
+с таким названием у пользователя уже есть (без учёта регистра).
 
 ### DELETE `/accounts/{id}`
 

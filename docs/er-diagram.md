@@ -27,7 +27,8 @@ erDiagram
         string userId FK "-> USER.id"
         string name "1-50 символов"
         string currency "ISO-4217, 3 буквы"
-        decimal balance "18,2; вычисляется из транзакций"
+        string kind "card | cash | savings"
+        decimal initialBalance "18,2; баланс при открытии"
     }
 
     TRANSACTION {
@@ -84,7 +85,11 @@ erDiagram
 | `userId` | string | FK → `User.id`, обязательно |
 | `name` | string | обязательно, 1–50 символов, уникально в пределах пользователя |
 | `currency` | string | ISO-4217, 3 заглавные буквы |
-| `balance` | decimal(18,2) | вычисляемое значение; на mock-этапах L2–L4 хранится как поле |
+| `kind` | enum | `card` \| `cash` \| `savings`; по умолчанию `card`. Определяет иконку счёта (добавлено на L4) |
+| `initialBalance` | decimal(18,2) | баланс на момент создания счёта, по умолчанию `0`, может быть отрицательным (кредитная карта); задаётся только при создании |
+
+Поля `balance` в таблице нет: баланс вычисляется (см. ниже) и отдаётся API как
+производное значение. С L4 так же считает и клиент.
 
 ### Transaction
 
@@ -130,7 +135,7 @@ erDiagram
 
 | Величина | Формула |
 |---|---|
-| Баланс счёта | `Σ amount(type = income) − Σ amount(type = expense)` по транзакциям счёта |
+| Баланс счёта | `initialBalance + Σ amount(type = income) − Σ amount(type = expense)` по транзакциям счёта |
 | Расход по категории за месяц | `Σ amount` транзакций с `type = expense`, данной категорией и `date` внутри месяца |
 | Прогресс бюджета | `spentAmount / limitAmount` |
 | Доля категории (`share`) | `amount категории / общая сумма расходов за месяц` |
