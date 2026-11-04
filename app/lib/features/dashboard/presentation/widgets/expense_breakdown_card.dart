@@ -1,12 +1,12 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
-import '../../../../core/mock/mock_data.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/category_catalog.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/money_text.dart';
 import '../../../../core/widgets/state_views.dart';
+import '../../domain/month_summary.dart';
 
 /// Donut chart of the month's expense structure with a legend underneath.
 class ExpenseBreakdownCard extends StatelessWidget {

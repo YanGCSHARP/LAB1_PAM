@@ -10,8 +10,9 @@
 | Тема | **T7 — WalletMate (личные финансы)**, уровень сложности «повышенный» |
 | Автор | Yang Alexandru, группа `TI-236` |
 
-> **Статус:** этап L3 — навигация на `go_router` и валидация форм. Данные пока
-> демонстрационные (mock), сохранение появится с репозиториями на L4.
+> **Статус:** этап L4 — состояние на Riverpod и слой репозиториев. Данные
+> демонстрационные: mock-бэкенд в памяти, изменения живут до перезапуска.
+> На L5 его заменит REST-клиент к собственному серверу.
 
 **Аудитория:** студенты и молодые специалисты — нерегулярный доход, небольшие суммы,
 часть трат наличными, которых банковское приложение не видит.
@@ -64,9 +65,9 @@
 walletmate/
 ├── .editorconfig
 ├── .gitignore
-├── app/                        # Flutter-приложение (появится на L2)
+├── app/                        # Flutter-приложение (с L2)
 │   ├── lib/
-│   │   ├── core/               # theme, router, widgets, utils, network, db
+│   │   ├── core/               # theme, router, widgets, utils, data (mock-бэкенд), state
 │   │   └── features/           # auth, dashboard, transactions, accounts, budgets, profile
 │   └── test/                   # unit- и widget-тесты
 ├── backend/                    # .NET Web API (появится на L5)
@@ -80,7 +81,9 @@ walletmate/
     └── reports/                # отчёты по лабораторным L1–L6
 ```
 
-Внутри каждой feature — слои `presentation/`, `domain/`, `data/`.
+Внутри каждой feature — слои `domain/` (модели и расчёты), `data/`
+(интерфейс репозитория и его mock-реализация), `application/` (провайдеры
+Riverpod) и `presentation/` (экраны).
 
 ---
 
@@ -89,7 +92,7 @@ walletmate/
 | Сущность | Поля |
 |---|---|
 | `User` | id, email, passwordHash, displayName, defaultCurrency, avatarUrl |
-| `Account` | id, userId, name, currency, balance |
+| `Account` | id, userId, name, currency, kind, initialBalance; balance — вычисляемый |
 | `Transaction` | id, accountId, amount, type (income/expense), category, date, note |
 | `Budget` | id, userId, category, limitAmount, month |
 
@@ -126,6 +129,8 @@ walletmate/
 | [`docs/er-diagram.md`](docs/er-diagram.md) | Модель данных, связи, индексы, справочник категорий |
 | [`docs/api-contract.md`](docs/api-contract.md) | Контракт REST API с примерами и форматом ошибок |
 | [`docs/reports/L1.md`](docs/reports/L1.md) | Отчёт по этапу L1 |
+| [`docs/reports/L3.md`](docs/reports/L3.md) | Отчёт по этапу L3 |
+| [`docs/reports/L4.md`](docs/reports/L4.md) | Отчёт по этапу L4 |
 
 ---
 
@@ -139,7 +144,7 @@ walletmate/
 | L1 | Спецификация, ER-диаграмма, карта экранов, контракт API | готово |
 | L2 | Статические экраны на Material 3 | готово |
 | L3 | Навигация (go_router), формы с валидацией | готово |
-| L4 | State management + Repository с mock-данными | — |
+| L4 | State management + Repository с mock-данными | готово |
 | L5 | .NET backend, REST-интеграция, JWT | — |
 | L6 | Offline-персистентность, тесты, release-сборка | — |
 
@@ -147,8 +152,7 @@ walletmate/
 
 ## Запуск
 
-> ⚠️ Команды ниже приведены заранее и **пока не работают**: каталога `app/` нет
-> до этапа L2, каталога `backend/` — до L5.
+> ⚠️ Каталога `backend/` пока нет — он появится на L5.
 
 **Приложение** (с L2)
 

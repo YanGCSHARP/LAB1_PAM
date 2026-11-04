@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../../features/budgets/domain/budget_progress.dart';
 import '../theme/app_theme.dart';
 import '../theme/design_tokens.dart';
 import '../utils/category_catalog.dart';
 import '../utils/formatters.dart';
+import '../utils/money.dart';
 import 'app_badge.dart';
 
 /// One budget row: category, spent-of-limit, and a track colored by the
@@ -27,7 +29,7 @@ class BudgetProgressBar extends StatelessWidget {
   final String currency;
   final VoidCallback? onTap;
 
-  double get _progress => limitAmount <= 0 ? 0 : spentAmount / limitAmount;
+  double get _progress => Money.ratio(spentAmount, limitAmount);
 
   @override
   Widget build(BuildContext context) {
@@ -35,14 +37,12 @@ class BudgetProgressBar extends StatelessWidget {
     final progress = _progress;
     final remaining = limitAmount - spentAmount;
 
-    final Color trackColor;
-    if (progress >= 1.0) {
-      trackColor = semantic.danger;
-    } else if (progress >= 0.9) {
-      trackColor = semantic.warning;
-    } else {
-      trackColor = semantic.category(category);
-    }
+    final status = BudgetStatus.of(progress);
+    final trackColor = switch (status) {
+      BudgetStatus.exceeded => semantic.danger,
+      BudgetStatus.warning => semantic.warning,
+      BudgetStatus.normal => semantic.category(category),
+    };
 
     final row = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -88,14 +88,14 @@ class BudgetProgressBar extends StatelessWidget {
               ),
             ),
             const SizedBox(width: Insets.sm),
-            if (progress >= 1.0)
+            if (status == BudgetStatus.exceeded)
               AppBadge(
                 label:
                     'перерасход ${Formatters.compactMoney(-remaining, currency)}',
                 tone: BadgeTone.danger,
                 icon: Icons.priority_high,
               )
-            else if (progress >= 0.9)
+            else if (status == BudgetStatus.warning)
               AppBadge(
                 label:
                     'осталось ${Formatters.compactMoney(remaining, currency)}',

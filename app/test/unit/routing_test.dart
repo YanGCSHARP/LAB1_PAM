@@ -1,9 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:walletmate/core/mock/mock_data.dart';
 import 'package:walletmate/core/router/app_router.dart';
 import 'package:walletmate/core/router/app_routes.dart';
 import 'package:walletmate/core/utils/category_catalog.dart';
 import 'package:walletmate/features/transactions/domain/transaction_filter.dart';
+
+import '../helpers/test_app.dart';
 
 void main() {
   group('authRedirect', () {
@@ -91,9 +92,9 @@ void main() {
 
     test('filters by category and month', () {
       const filter = TransactionFilter(category: 'food', month: '2026-09');
-      final result = filter.apply(mockTransactions);
+      final result = filter.apply(testSeed.transactions);
 
-      // tx-02, tx-06, tx-09, tx-13, tx-17 in the mock data.
+      // tx-02, tx-06, tx-09, tx-13, tx-17 in the demo data.
       expect(result, hasLength(5));
       expect(result.every((t) => t.category == 'food'), isTrue);
       // Newest first.
@@ -102,7 +103,7 @@ void main() {
 
     test('filters by type', () {
       const filter = TransactionFilter(kind: TransactionKind.income);
-      final result = filter.apply(mockTransactions);
+      final result = filter.apply(testSeed.transactions);
 
       expect(result, isNotEmpty);
       expect(result.every((t) => t.isIncome), isTrue);
@@ -110,13 +111,13 @@ void main() {
 
     test('searches the note and the category label, ignoring case', () {
       expect(
-        const TransactionFilter(query: 'АРЕНДА').apply(mockTransactions),
+        const TransactionFilter(query: 'АРЕНДА').apply(testSeed.transactions),
         hasLength(2),
       );
       // "Здоровье" is the label of `health`; the note says "Аптека".
       expect(
         const TransactionFilter(query: 'здоров')
-            .apply(mockTransactions)
+            .apply(testSeed.transactions)
             .single
             .id,
         'tx-11',

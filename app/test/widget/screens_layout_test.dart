@@ -4,9 +4,12 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:walletmate/app.dart';
 import 'package:walletmate/core/utils/formatters.dart';
 
+import '../helpers/test_app.dart';
+
 /// Every routed screen, opened by its URL on the narrowest supported phone.
 const List<String> _locations = [
   '/register',
+  '/dashboard',
   '/transactions',
   '/transactions?type=expense&category=food&month=2026-09',
   '/transactions/tx-05',
@@ -17,6 +20,7 @@ const List<String> _locations = [
   '/budgets/bud-1/edit',
   '/profile',
   '/accounts',
+  '/accounts/new',
   '/accounts/acc-1/edit',
   '/no-such-page',
 ];
@@ -37,9 +41,11 @@ void main() {
         addTearDown(tester.platformDispatcher.clearPlatformBrightnessTestValue);
 
         await tester.pumpWidget(
-          WalletMateApp(
-            signedIn: location != '/register',
-            initialLocation: location,
+          withProviders(
+            WalletMateApp(
+              signedIn: location != '/register',
+              initialLocation: location,
+            ),
           ),
         );
         await tester.pumpAndSettle();

@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/l10n/app_strings.dart';
-import '../../../core/mock/mock_data.dart';
 import '../../../core/router/app_routes.dart';
+import '../../../core/state/clock.dart';
 import '../../../core/theme/design_tokens.dart';
 import '../../../core/utils/category_catalog.dart';
 import '../../../core/utils/formatters.dart';
@@ -13,28 +14,43 @@ import '../../../core/widgets/app_sheet.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../core/widgets/category_badge.dart';
 import '../../../core/widgets/confirm_dialog.dart';
+import '../../../core/widgets/repository_action.dart';
 import '../../../core/widgets/selector_field.dart';
+import '../application/budgets_providers.dart';
+import '../domain/budget.dart';
 
 /// Create / edit form for a monthly budget: category, limit, month.
 ///
 /// Besides the per-field rules it enforces the data model's uniqueness — one
 /// budget per category and month — so the 409 the backend would return on L5
 /// is caught before the request is ever sent.
-class BudgetFormScreen extends StatefulWidget {
-  const BudgetFormScreen({super.key, this.budget, this.initialMonth});
+class BudgetFormScreen extends ConsumerStatefulWidget {
+  const BudgetFormScreen({
+    required this.budgets,
+    required this.currency,
+    super.key,
+    this.budget,
+    this.initialMonth,
+  });
+
+  /// Every budget of the user, for the uniqueness check.
+  final List<Budget> budgets;
+
+  /// Currency of the limit — the user's default currency.
+  final String currency;
 
   /// `null` means "new budget".
-  final MockBudget? budget;
+  final Budget? budget;
 
   /// Month key `YYYY-MM` a new budget starts with — the month the budgets
   /// screen was showing.
   final String? initialMonth;
 
   @override
-  State<BudgetFormScreen> createState() => _BudgetFormScreenState();
+  ConsumerState<BudgetFormScreen> createState() => _BudgetFormScreenState();
 }
 
-class _BudgetFormScreenState extends State<BudgetFormScreen> {
+class _BudgetFormScreenState extends ConsumerState<BudgetFormScreen> {
   final _categoryKey = GlobalKey<FormFieldState<String>>();
 
   late String? _category = widget.budget?.category;
@@ -45,28 +61,31 @@ class _BudgetFormScreenState extends State<BudgetFormScreen> {
   );
   late String _month = _initialMonth;
 
-  static const String _currency = MockUser.defaultCurrency;
+  /// A save or a delete is in flight.
+  bool _busy = false;
 
   bool get _isEditing => widget.budget != null;
+
+  DateTime get _today => ref.read(todayProvider);
 
   String get _initialMonth {
     final requested = widget.budget?.month ?? widget.initialMonth;
     if (requested != null && DateTime.tryParse('$requested-01') != null) {
       return requested;
     }
-    return Formatters.monthKey(mockToday);
+    return Formatters.monthKey(_today);
   }
 
   /// `category|month` of every other budget.
   late final Set<String> _taken = {
-    for (final budget in mockBudgets)
+    for (final budget in widget.budgets)
       if (budget.id != widget.budget?.id)
         Validators.budgetKey(budget.category, budget.month),
   };
 
   /// Months offered by the picker: two back, the current one, nine ahead.
   List<String> get _monthOptions {
-    final base = DateTime(mockToday.year, mockToday.month);
+    final base = DateTime(_today.year, _today.month);
     final options = [
       for (var offset = -2; offset <= 9; offset++)
         Formatters.monthKey(DateTime(base.year, base.month + offset)),
@@ -175,13 +194,40 @@ class _BudgetFormScreenState extends State<BudgetFormScreen> {
     }
   }
 
-  void _save() {
-    showAppToast(
-      context,
-      _isEditing ? 'Бюджет обновлён' : 'Бюджет создан',
-      tone: ToastTone.success,
-    );
-    _close();
+  Future<void> _save() async {
+    setState(() => _busy = true);
+    final budgets = ref.read(budgetsProvider.notifier);
+    final initial = widget.budget;
+    final limit = Validators.parseAmount(_limit.text)!;
+    final saved = await runRepositoryAction(context, () async {
+      if (initial == null) {
+        await budgets.create(
+          category: _category!,
+          limitAmount: limit,
+          month: _month,
+        );
+      } else {
+        await budgets.save(
+          initial.copyWith(
+            category: _category,
+            limitAmount: limit,
+            month: _month,
+          ),
+        );
+      }
+    });
+    if (!mounted) {
+      return;
+    }
+    setState(() => _busy = false);
+    if (saved) {
+      showAppToast(
+        context,
+        _isEditing ? 'Бюджет обновлён' : 'Бюджет создан',
+        tone: ToastTone.success,
+      );
+      _close();
+    }
   }
 
   Future<void> _confirmDelete() async {
@@ -198,8 +244,19 @@ class _BudgetFormScreenState extends State<BudgetFormScreen> {
     if (!confirmed || !mounted) {
       return;
     }
-    showAppToast(context, 'Бюджет удалён');
-    _close();
+    setState(() => _busy = true);
+    final deleted = await runRepositoryAction(
+      context,
+      () => ref.read(budgetsProvider.notifier).delete(widget.budget!.id),
+    );
+    if (!mounted) {
+      return;
+    }
+    setState(() => _busy = false);
+    if (deleted) {
+      showAppToast(context, 'Бюджет удалён');
+      _close();
+    }
   }
 
   @override
@@ -267,19 +324,20 @@ class _BudgetFormScreenState extends State<BudgetFormScreen> {
                   labelText: 'Лимит на месяц',
                   hintText: '1 000,00',
                   prefixIcon: const Icon(Icons.savings_outlined),
-                  suffixText: Formatters.currencySymbol(_currency),
+                  suffixText: Formatters.currencySymbol(widget.currency),
                 ),
               ),
               const SizedBox(height: Insets.xl),
               PrimaryButton(
                 label: AppStrings.save,
+                loading: _busy,
                 onPressed: _isValid ? _save : null,
               ),
               if (_isEditing) ...[
                 const SizedBox(height: Insets.md),
                 DestructiveButton(
                   label: 'Удалить бюджет',
-                  onPressed: _confirmDelete,
+                  onPressed: _busy ? null : _confirmDelete,
                 ),
               ],
             ],

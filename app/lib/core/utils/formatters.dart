@@ -57,6 +57,23 @@ abstract final class Formatters {
     return NumberFormat('#,##0.00', locale).format(amount);
   }
 
+  /// Russian plural form for [count]: `plural(5, 'операция', 'операции',
+  /// 'операций')` → `операций`.
+  static String plural(int count, String one, String few, String many) {
+    final lastTwo = count.abs() % 100;
+    final last = lastTwo % 10;
+    if (lastTwo >= 11 && lastTwo <= 14) {
+      return many;
+    }
+    if (last == 1) {
+      return one;
+    }
+    if (last >= 2 && last <= 4) {
+      return few;
+    }
+    return many;
+  }
+
   /// `31,7 %`
   static String percent(double ratio) {
     return NumberFormat.decimalPercentPattern(

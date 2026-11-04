@@ -4,11 +4,13 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:walletmate/app.dart';
 import 'package:walletmate/core/utils/formatters.dart';
 
+import '../helpers/test_app.dart';
+
 void main() {
   setUpAll(() => initializeDateFormatting(Formatters.locale));
 
   testWidgets('app starts on the login screen', (tester) async {
-    await tester.pumpWidget(const WalletMateApp());
+    await tester.pumpWidget(withProviders(const WalletMateApp()));
     await tester.pumpAndSettle();
 
     expect(find.text('Вход'), findsWidgets);
@@ -21,7 +23,7 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(const WalletMateApp());
+    await tester.pumpWidget(withProviders(const WalletMateApp()));
     await tester.pumpAndSettle();
 
     // A layout overflow reports itself as a test failure, so reaching the
@@ -30,7 +32,7 @@ void main() {
   });
 
   testWidgets('signing in opens the shell with four tabs', (tester) async {
-    await tester.pumpWidget(const WalletMateApp());
+    await tester.pumpWidget(withProviders(const WalletMateApp()));
     await tester.pumpAndSettle();
 
     await tester.enterText(
