@@ -23,6 +23,11 @@ public static class Errors
     public static IResult EmailTaken() =>
         Error(409, "EMAIL_TAKEN", "An account with this email already exists");
 
+    /// <summary>A uniqueness rule of the data model is broken - e.g. a second
+    /// account with the same name, a second budget for a category and month.</summary>
+    public static IResult Conflict(string message) =>
+        Error(409, "CONFLICT", message);
+
     /// <summary>Returns the value as a trimmed non-empty string, or null when
     /// it is missing/empty (the equivalent of Dart's `stringField`).</summary>
     public static string? Trimmed(string? value)
