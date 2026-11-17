@@ -50,6 +50,13 @@ accounts.MapGet("/{id:long}", Accounts.GetOne);
 accounts.MapPut("/{id:long}", Accounts.Update);
 accounts.MapDelete("/{id:long}", Accounts.Delete);
 
+var transactions = app.MapGroup("/transactions").AddEndpointFilter(Auth.RequireAuth);
+transactions.MapGet("", Transactions.List);
+transactions.MapPost("", Transactions.Create);
+transactions.MapGet("/{id:long}", Transactions.GetOne);
+transactions.MapPut("/{id:long}", Transactions.Update);
+transactions.MapDelete("/{id:long}", Transactions.Delete);
+
 app.MapPost("/files", Files.Upload).AddEndpointFilter(Auth.RequireAuth);
 app.MapGet("/files/{id:long}", Files.Download); // public on purpose (images by URL)
 
