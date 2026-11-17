@@ -57,6 +57,13 @@ transactions.MapGet("/{id:long}", Transactions.GetOne);
 transactions.MapPut("/{id:long}", Transactions.Update);
 transactions.MapDelete("/{id:long}", Transactions.Delete);
 
+var budgets = app.MapGroup("/budgets").AddEndpointFilter(Auth.RequireAuth);
+budgets.MapGet("", Budgets.List);
+budgets.MapPost("", Budgets.Create);
+budgets.MapGet("/{id:long}", Budgets.GetOne);
+budgets.MapPut("/{id:long}", Budgets.Update);
+budgets.MapDelete("/{id:long}", Budgets.Delete);
+
 app.MapPost("/files", Files.Upload).AddEndpointFilter(Auth.RequireAuth);
 app.MapGet("/files/{id:long}", Files.Download); // public on purpose (images by URL)
 
