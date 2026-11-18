@@ -43,6 +43,9 @@ notes.MapPut("/{id:long}", Notes.Update);
 notes.MapDelete("/{id:long}", Notes.Delete);
 
 // WalletMate entities, registered the same way as /notes.
+app.MapGet("/profile", Profiles.Get).AddEndpointFilter(Auth.RequireAuth);
+app.MapPut("/profile", Profiles.Update).AddEndpointFilter(Auth.RequireAuth);
+
 var accounts = app.MapGroup("/accounts").AddEndpointFilter(Auth.RequireAuth);
 accounts.MapGet("", Accounts.List);
 accounts.MapPost("", Accounts.Create);
