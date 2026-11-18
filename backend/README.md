@@ -1,79 +1,82 @@
-# .NET + Minimal API — portul C#
+# WalletMate API
 
-Portul .NET al backend-șablonului PAM. Implementează exact
-[`../openapi.yaml`](../openapi.yaml); vezi README-ul șablonului
-(`../README_RO.md` / `_RU` / `_EN`) pentru contract și reguli.
+Backend WalletMate на основе шаблона курса PAM — порт на .NET 9 Minimal API.
+Из шаблона взяты без изменений JWT-аутентификация (`Auth.cs`), единый формат
+ошибок и middleware (`Errors.cs`), загрузка файлов (`Files.cs`) и приём
+пагинации из примера `Notes.cs`. Сущности WalletMate добавлены по рецепту
+шаблона: таблица в `Db.cs`, файл по образцу `Notes.cs`, маршруты в `Program.cs`.
 
-## Pornire
+## Запуск
 
 ```bash
+cd backend
 dotnet run
 ```
 
-Atât. Pachetele NuGet se restaurează automat, iar `app.db` (SQLite) și
-folderul `uploads/` se creează automat la prima pornire. Cerință: .NET SDK 9
-(`dotnet --version`).
+Нужен .NET SDK 9. База `app.db` (SQLite) и папка `uploads/` создаются сами;
+в пустую базу записывается демо-аккаунт **`demo@walletmate.md` / `Demo1234`**
+с тремя счетами, операциями за прошлый и текущий месяц и пятью бюджетами.
 
-- Env: `PORT` (implicit 8080), `JWT_SECRET` (implicit `dev-secret-change-me`).
-  `PORT` câștigă întotdeauna — URL-ul e forțat din cod (`app.Run(...)` în
-  `Program.cs`), deci `ASPNETCORE_URLS` sau `launchSettings.json` nu îl pot
-  suprascrie.
-- Upload-urile sunt limitate la 5 MB per fișier (`POST /files` răspunde 400
-  `VALIDATION_ERROR` peste limită). Setările implicite — CORS deschis,
-  secretul JWT de dev, limita de 5 MB — sunt pentru laborator, nu pentru
-  producție.
-- Descărcările (`GET /files/{id}`) pleacă cu `Content-Disposition: attachment`
-  și `Content-Security-Policy: default-src 'none'; sandbox`: oricine poate
-  încărca `text/html` sau `image/svg+xml`, iar fără aceste antete un link
-  deschis direct în browser ar rula scriptul atacatorului pe originea API-ului
-  (stored XSS). `Image.network`/`<img>` ignoră ambele antete, deci afișarea
-  imaginilor în laborator nu se schimbă — dar șablonul rămâne o configurație
-  de laborator, nu de producție.
+| Переменная | По умолчанию | Назначение |
+|---|---|---|
+| `PORT` | `8080` | порт сервера |
+| `JWT_SECRET` | `dev-secret-change-me` | ключ подписи JWT; в release задаётся обязательно |
+| `DB_PATH` | `app.db` | файл базы |
+| `UPLOADS_DIR` | `uploads` | папка загруженных файлов |
+| `SEED_DEMO` | `true` | `false` — стартовать с пустой базой |
 
-## Verificarea contra contractului
+## Структура
+
+```
+Program.cs       запуск, все маршруты, middleware                  шаблон + маршруты WalletMate
+Db.cs            схема SQLite, хелпер Cmd()                        шаблон + 3 таблицы
+Auth.cs          register / login / me, PBKDF2, JWT HS256          шаблон
+Errors.cs        формат {"error":{code,message}}, middleware       шаблон + код CONFLICT
+Files.cs         загрузка и выдача файлов                          шаблон
+Notes.cs         пример сущности                                   шаблон
+Money.cs         деньги в копейках, справочники валют и категорий  WalletMate
+Accounts.cs      счета, баланс считается SQL-запросом              WalletMate
+Transactions.cs  операции, фильтры и пагинация                     WalletMate
+Budgets.cs       бюджеты, потраченная сумма считается SQL-запросом WalletMate
+Profile.cs       имя, валюта по умолчанию, аватар                  WalletMate
+Seed.cs          демо-аккаунт                                      WalletMate
+Tests/           интеграционные тесты (xUnit + WebApplicationFactory)
+```
+
+## Маршруты
+
+Все маршруты, кроме `/health`, `/auth/*` и `GET /files/{id}`, требуют
+`Authorization: Bearer <token>`. Списки отвечают в формате шаблона
+`{items, page, limit, total}`, `limit` — от 1 до 100.
+
+| Метод и путь | Что делает |
+|---|---|
+| `POST /auth/register`, `POST /auth/login`, `GET /me` | аккаунт и JWT (шаблон) |
+| `GET /profile`, `PUT /profile` | профиль: `displayName`, `defaultCurrency`, `avatarFileId` |
+| `GET /accounts`, `POST /accounts` | счета пользователя с вычисленным `balance` |
+| `GET /accounts/{id}`, `PUT /accounts/{id}`, `DELETE /accounts/{id}` | один счёт; удаление забирает его операции |
+| `GET /transactions?page&limit&search&type&category&accountId&from&to` | операции, новые сверху |
+| `POST /transactions`, `GET/PUT/DELETE /transactions/{id}` | CRUD операции |
+| `GET /budgets?month=YYYY-MM`, `POST /budgets` | бюджеты с вычисленным `spentAmount` |
+| `GET/PUT/DELETE /budgets/{id}` | один бюджет |
+| `POST /files`, `GET /files/{id}` | загрузка и выдача файла (шаблон), используется для аватара |
+
+## Правила
+
+- Деньги хранятся в целых копейках (`INTEGER`), API принимает и отдаёт
+  десятичные суммы не больше двух знаков после запятой.
+- Чужая запись неотличима от несуществующей: `404 NOT_FOUND`.
+- Повтор названия счёта (без учёта регистра, в том числе кириллицы) и второй
+  бюджет на ту же категорию и месяц — `409 CONFLICT`.
+- Сумма > 0 и ≤ 1 000 000, категория должна подходить к типу операции,
+  дата — не позже завтрашнего дня, заметка — до 200 символов.
+- `spentAmount` бюджета учитывает только счета в валюте по умолчанию из профиля.
+
+## Тесты
 
 ```bash
-# cu serverul pornit:
-cd ../conformance
-dart pub get
-dart run bin/conformance.dart --base-url http://localhost:8080
+cd backend/Tests
+dotnet test
 ```
 
-## Structura
-
-```
-Program.cs — pornire: env, toate rutele, middleware (erori, CORS)
-Db.cs      — schema SQLite, aplicată automat la pornire + helperul Cmd()
-Auth.cs    — register/login/me, parole PBKDF2, JWT (HS256, scris de mână)
-Notes.cs   — entitatea-exemplu: CRUD + paginare + căutare
-Files.cs   — upload multipart, download binar
-Errors.cs  — formatul standard de eroare + middleware-ul global de erori
-```
-
-Fără controllere MVC și fără EF Core: rute Minimal API și SQL parametrizat
-prin `Microsoft.Data.Sqlite` — fiecare interogare rămâne vizibilă în cod.
-
-Parolele sunt hash-uite cu PBKDF2-HMAC-SHA256 (100k iterații, salt aleatoriu)
-prin `Rfc2898DeriveBytes.Pbkdf2` din BCL — niciun pachet extern; formatul
-stocat este `iterații:salt:hash` (identic cu referința Dart). JWT-ul este
-implementat manual (~40 de linii în `Auth.cs`), ca să vezi exact ce este un
-token — fără pachetele `JwtBearer`/`System.IdentityModel`, deci și fără
-capcana lor `MapInboundClaims`, care redenumește pe tăcute claim-ul `sub`.
-
-Corpurile JSON invalide devin 400 `VALIDATION_ERROR` (nu 500): legarea
-parametrilor aruncă excepție (`ThrowOnBadRequest`, în `Program.cs`), iar
-middleware-ul din `Errors.cs` o transformă în formatul standard de eroare.
-
-## Adaugă-ți propria entitate
-
-`Notes.cs` este șablonul — copiază-l:
-
-1. Adaugă un `CREATE TABLE` pentru entitatea ta în `Db.cs` (cu o coloană
-   `user_id` dacă aparține unui utilizator).
-2. Copiază `Notes.cs` în, de exemplu, `Recipes.cs`; redenumește tabelul,
-   recordurile și câmpurile JSON.
-3. Înregistrează noile rute în `Program.cs`, lângă grupul `/notes`
-   (păstrează `.AddEndpointFilter(Auth.RequireAuth)` pe grup).
-4. Repornește, testează cu `curl` sau cu aplicația ta Flutter, apoi rulează
-   din nou suita de conformitate ca să confirmi că contractul de bază încă
-   trece.
+Сервер поднимается в памяти на временной базе; отдельный запуск не нужен.
