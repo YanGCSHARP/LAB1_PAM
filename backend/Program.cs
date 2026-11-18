@@ -78,3 +78,6 @@ app.MapFallback(() => Errors.NotFound("Route not found"));
 // The PORT env variable wins over everything else (ASPNETCORE_URLS,
 // launchSettings.json) - passing the URL here overrides any configured address.
 app.Run($"http://0.0.0.0:{port}");
+
+// Makes the entry point visible to WebApplicationFactory in Tests/.
+public partial class Program;
