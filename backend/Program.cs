@@ -2,8 +2,8 @@
 //
 // Start:  dotnet run
 // Env:    PORT (default 8080), JWT_SECRET (default dev-secret-change-me)
-//         WalletMate adds DB_PATH (default app.db) and UPLOADS_DIR (default
-//         uploads).
+//         WalletMate adds DB_PATH (default app.db), UPLOADS_DIR (default
+//         uploads) and SEED_DEMO (default true: demo account on first start).
 
 using PamBackend;
 
@@ -28,6 +28,8 @@ app.UseCors();
 
 Db.Init(Environment.GetEnvironmentVariable("DB_PATH") ?? "app.db"); // creates the db + schema on first start
 Files.InitStorage(Environment.GetEnvironmentVariable("UPLOADS_DIR") ?? "uploads"); // creates uploads/ on first start
+if (Environment.GetEnvironmentVariable("SEED_DEMO") != "false")
+    Seed.Run(DateTime.Now); // demo@walletmate.md / Demo1234 in an empty database
 
 app.MapGet("/health", () => Results.Json(new { status = "ok" }));
 app.MapPost("/auth/register", Auth.Register);
