@@ -35,6 +35,21 @@ final class ValidationException extends RepositoryException {
   const ValidationException(super.message);
 }
 
+/// The token is missing, expired or the credentials are wrong — HTTP 401.
+/// Outside the sign-in screen it ends the session.
+final class UnauthorizedException extends RepositoryException {
+  const UnauthorizedException([
+    super.message = 'Сессия истекла. Войдите снова.',
+  ]);
+}
+
+/// The server failed on its side — HTTP 5xx.
+final class ServerException extends RepositoryException {
+  const ServerException([
+    super.message = 'Ошибка на сервере. Повторите попытку позже.',
+  ]);
+}
+
 /// User-facing text for any error a provider or a repository call produced.
 String errorMessage(Object error) => switch (error) {
   RepositoryException(:final message) => message,
