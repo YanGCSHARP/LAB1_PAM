@@ -1,23 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/data/repository_exception.dart';
 import '../../../core/l10n/app_strings.dart';
 import '../../../core/router/app_routes.dart';
 import '../../../core/validation/validators.dart';
+import '../../../core/widgets/app_buttons.dart';
 import '../../../core/widgets/app_toast.dart';
 import 'widgets/auth_header.dart';
 import 'widgets/auth_switch_link.dart';
 
 /// Sign-in screen.
 ///
-/// The form is validated on the client; any well-formed email and non-empty
-/// password are accepted until the backend checks credentials on L5.
-/// Navigation after sign-in is the router's job: [onSignedIn] flips the
-/// session and the redirect moves the user to the dashboard.
+/// The form is validated on the client, the credentials by the server.
+/// Navigation after sign-in is the router's job: [onSignIn] starts the
+/// session and the redirect moves the user to the dashboard. A wrong
+/// password or a missing network is reported in a toast; the form keeps
+/// what was typed.
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({required this.onSignedIn, super.key});
+  const LoginScreen({required this.onSignIn, super.key});
 
-  final VoidCallback onSignedIn;
+  final Future<void> Function({required String email, required String password})
+  onSignIn;
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -32,6 +36,9 @@ class _LoginScreenState extends State<LoginScreen> {
   /// red while the person is still typing their email is hostile.
   bool _submitted = false;
 
+  /// A request is in flight: the button shows a spinner and ignores taps.
+  bool _busy = false;
+
   @override
   void dispose() {
     _email.dispose();
@@ -39,11 +46,26 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     setState(() => _submitted = true);
-    if (_formKey.currentState!.validate()) {
-      FocusScope.of(context).unfocus();
-      widget.onSignedIn();
+    if (_busy || !_formKey.currentState!.validate()) {
+      return;
+    }
+    FocusScope.of(context).unfocus();
+    setState(() => _busy = true);
+    try {
+      await widget.onSignIn(
+        email: _email.text.trim(),
+        password: _password.text,
+      );
+    } on RepositoryException catch (error) {
+      if (mounted) {
+        showAppToast(context, error.message, tone: ToastTone.error);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _busy = false);
+      }
     }
   }
 
@@ -102,9 +124,10 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ),
                       const SizedBox(height: 10),
-                      FilledButton(
+                      PrimaryButton(
+                        label: AppStrings.signIn,
+                        loading: _busy,
                         onPressed: _submit,
-                        child: const Text(AppStrings.signIn),
                       ),
                       const SizedBox(height: 20),
                       AuthSwitchLink(

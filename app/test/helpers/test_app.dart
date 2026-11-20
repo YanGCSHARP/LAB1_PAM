@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:walletmate/app.dart';
 import 'package:walletmate/core/data/mock/mock_providers.dart';
 import 'package:walletmate/core/data/mock/mock_seed.dart';
+import 'package:walletmate/core/network/api_config.dart';
 import 'package:walletmate/core/state/clock.dart';
 
 /// The day every test runs on. The demo data is laid out relative to "today",
@@ -14,8 +15,11 @@ final DateTime testToday = DateTime(2026, 9, 18);
 /// The demo data as the app sees it on [testToday].
 final MockSeed testSeed = MockSeed.relativeTo(testToday);
 
-/// Pins "today" and sets the mock network delay — none by default.
+/// Runs on the mock backend, pins "today" and sets the mock network delay —
+/// none by default. The REST repositories are tested on their own with a
+/// fake HTTP adapter (`test/unit/api_*_test.dart`).
 List<Override> testOverrides({Duration latency = Duration.zero}) => [
+  useMockBackendProvider.overrideWithValue(true),
   todayProvider.overrideWithValue(testToday),
   mockLatencyProvider.overrideWithValue(latency),
 ];
