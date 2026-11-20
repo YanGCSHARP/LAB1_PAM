@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/data/mock/mock_providers.dart';
+import '../../../core/network/api_client.dart';
+import '../../../core/network/api_config.dart';
 import '../../accounts/application/accounts_providers.dart';
 import '../../accounts/domain/account.dart';
 import '../../accounts/domain/balances.dart';
@@ -8,14 +10,18 @@ import '../../profile/application/profile_providers.dart';
 import '../../profile/domain/user_profile.dart';
 import '../../transactions/application/transactions_providers.dart';
 import '../../transactions/domain/transaction.dart';
+import '../data/api_budget_repository.dart';
 import '../data/budget_repository.dart';
 import '../data/mock_budget_repository.dart';
 import '../domain/budget.dart';
 import '../domain/budget_progress.dart';
 
-/// The only place that decides which [BudgetRepository] the app uses.
+/// The only place that decides which [BudgetRepository] the app uses: the
+/// backend, or the in-memory mock with `USE_MOCKS` and in tests.
 final budgetRepositoryProvider = Provider<BudgetRepository>(
-  (ref) => MockBudgetRepository(ref.watch(mockBackendProvider)),
+  (ref) => ref.watch(useMockBackendProvider)
+      ? MockBudgetRepository(ref.watch(mockBackendProvider))
+      : ApiBudgetRepository(ref.watch(apiClientProvider)),
 );
 
 /// Every budget of the user, for all months.

@@ -1,4 +1,5 @@
 import '../../../core/data/mock/mock_backend.dart';
+import '../../../core/data/repository_exception.dart';
 import '../domain/user_profile.dart';
 import 'profile_repository.dart';
 
@@ -22,5 +23,19 @@ class MockProfileRepository implements ProfileRepository {
       _backend.profile = updated;
       return updated;
     });
+  }
+
+  /// The mock backend keeps no files: an avatar needs the server.
+  @override
+  Future<UserProfile> uploadAvatar({
+    required List<int> bytes,
+    required String filename,
+    required String mimeType,
+  }) {
+    return _backend.request(
+      () => throw const ValidationException(
+        'Аватар загружается только на сервер. Запустите приложение с backend.',
+      ),
+    );
   }
 }
