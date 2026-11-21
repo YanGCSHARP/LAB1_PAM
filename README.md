@@ -10,9 +10,9 @@
 | Тема | **T7 — WalletMate (личные финансы)**, уровень сложности «повышенный» |
 | Автор | Yang Alexandru, группа `TI-236` |
 
-> **Статус:** этап L4 — состояние на Riverpod и слой репозиториев. Данные
-> демонстрационные: mock-бэкенд в памяти, изменения живут до перезапуска.
-> На L5 его заменит REST-клиент к собственному серверу.
+> **Статус:** этап L5 — собственный backend на шаблоне курса (.NET 9 Minimal
+> API + SQLite), REST-интеграция и JWT. Данные хранятся на сервере; работа без
+> сети — этап L6.
 
 **Аудитория:** студенты и молодые специалисты — нерегулярный доход, небольшие суммы,
 часть трат наличными, которых банковское приложение не видит.
@@ -41,7 +41,7 @@
 | UI | Material 3, светлая и тёмная темы |
 | Навигация | go_router |
 | State | Riverpod |
-| Сеть | dio + JWT interceptor |
+| Сеть | dio + JWT interceptor, токен в flutter_secure_storage |
 | Локальная БД | drift (SQLite) |
 | Графики | fl_chart |
 | Тесты | flutter_test, mocktail, integration_test |
@@ -50,12 +50,11 @@
 
 | | |
 |---|---|
-| Платформа | ASP.NET Core Web API (.NET LTS) |
-| ORM | EF Core |
-| БД | SQLite (dev) / PostgreSQL (docker) |
-| Auth | JWT Bearer |
-| Документация | Swagger UI |
-| Ошибки | ProblemDetails (RFC 7807) |
+| Основа | шаблон backend-а курса PAM, порт .NET 9 Minimal API |
+| БД | SQLite через Microsoft.Data.Sqlite, параметризованный SQL без ORM |
+| Auth | JWT HS256 и пароли PBKDF2 из шаблона |
+| Ошибки | формат шаблона `{"error": {"code", "message"}}` |
+| Тесты | xUnit + WebApplicationFactory |
 
 ---
 
@@ -70,10 +69,9 @@ walletmate/
 │   │   ├── core/               # theme, router, widgets, utils, data (mock-бэкенд), state
 │   │   └── features/           # auth, dashboard, transactions, accounts, budgets, profile
 │   └── test/                   # unit- и widget-тесты
-├── backend/                    # .NET Web API (появится на L5)
-│   ├── src/WalletMate.Api/     # Controllers, Entities, Dtos, Data, Services
-│   ├── tests/WalletMate.Api.Tests/
-│   └── docker-compose.yml
+├── backend/                    # шаблон курса + сущности WalletMate (с L5)
+│   ├── *.cs                    # Program, Db, Auth, Errors, Files, Accounts, …
+│   └── Tests/                  # интеграционные тесты API
 └── docs/
     ├── screens.md              # карта экранов и переходов
     ├── er-diagram.md           # модель данных
@@ -82,8 +80,8 @@ walletmate/
 ```
 
 Внутри каждой feature — слои `domain/` (модели и расчёты), `data/`
-(интерфейс репозитория и его mock-реализация), `application/` (провайдеры
-Riverpod) и `presentation/` (экраны).
+(интерфейс репозитория, его REST- и mock-реализации), `application/`
+(провайдеры Riverpod) и `presentation/` (экраны).
 
 ---
 
@@ -131,6 +129,8 @@ Riverpod) и `presentation/` (экраны).
 | [`docs/reports/L1.md`](docs/reports/L1.md) | Отчёт по этапу L1 |
 | [`docs/reports/L3.md`](docs/reports/L3.md) | Отчёт по этапу L3 |
 | [`docs/reports/L4.md`](docs/reports/L4.md) | Отчёт по этапу L4 |
+| [`docs/reports/L5.md`](docs/reports/L5.md) | Отчёт по этапу L5 |
+| [`backend/README.md`](backend/README.md) | Маршруты, правила и запуск backend-а |
 
 ---
 
@@ -145,16 +145,25 @@ Riverpod) и `presentation/` (экраны).
 | L2 | Статические экраны на Material 3 | готово |
 | L3 | Навигация (go_router), формы с валидацией | готово |
 | L4 | State management + Repository с mock-данными | готово |
-| L5 | .NET backend, REST-интеграция, JWT | — |
+| L5 | .NET backend, REST-интеграция, JWT | готово |
 | L6 | Offline-персистентность, тесты, release-сборка | — |
 
 ---
 
 ## Запуск
 
-> ⚠️ Каталога `backend/` пока нет — он появится на L5.
+Сначала backend (нужен .NET SDK 9). База `app.db` и папка `uploads/`
+создаются сами, в пустую базу записывается демо-аккаунт
+**`demo@walletmate.md` / `Demo1234`**.
 
-**Приложение** (с L2)
+```bash
+cd backend
+dotnet run
+```
+
+Сервер слушает `http://localhost:8080` (порт — переменная `PORT`).
+
+Потом приложение:
 
 ```bash
 cd app
@@ -162,17 +171,13 @@ flutter pub get
 flutter run
 ```
 
-**Backend** (с L5)
+Адрес API по умолчанию — `localhost:8080`, из эмулятора Android —
+`10.0.2.2:8080`. Телефон в той же сети:
+`flutter run --dart-define=API_URL=http://<IP компьютера>:8080`.
+Без сервера, на демо-данных в памяти: `flutter run --dart-define=USE_MOCKS=true`.
 
-```bash
-cd backend
-dotnet restore
-dotnet ef database update --project src/WalletMate.Api
-dotnet run --project src/WalletMate.Api
-```
-
-Swagger будет доступен на `http://localhost:5099/swagger`,
-демо-учётка — `demo@walletmate.md` / `Demo1234`.
+Тесты: `cd app && flutter test` (сервер не нужен) и
+`cd backend/Tests && dotnet test`.
 
 ---
 
