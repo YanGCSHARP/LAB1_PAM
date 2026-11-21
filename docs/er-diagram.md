@@ -1,7 +1,14 @@
 # Модель данных WalletMate
 
-Документ описывает сущности, их поля, связи и ограничения. Он — источник истины для
-EF Core-сущностей backend-а (L5) и для drift-таблиц локальной БД (L6).
+Документ описывает сущности, их поля, связи и ограничения. По нему построена
+схема SQLite backend-а (`backend/Db.cs`, L5) и будут построены drift-таблицы
+локальной БД (L6).
+
+> **L5.** Backend собран на шаблоне курса: идентификаторы — целые
+> `INTEGER PRIMARY KEY` (в приложении хранятся строками), деньги — целые копейки
+> (`*_cents INTEGER`), а в API — десятичные суммы. Таблица `users` шаблона
+> дополнена полями `default_currency` и `avatar_file_id`; аватар — файл из
+> таблицы `files` шаблона. Ниже имена полей даны так, как их видит API.
 
 ---
 
@@ -14,27 +21,27 @@ erDiagram
     ACCOUNT ||--o{ TRANSACTION : "содержит"
 
     USER {
-        string id PK "guid"
+        int id PK
         string email UK "уникальный, ISO-формат email"
-        string passwordHash "PasswordHasher<User>"
-        string displayName "1-100 символов"
-        string defaultCurrency "ISO-4217, 3 буквы"
-        string avatarUrl "nullable"
+        string passwordHash "PBKDF2 из шаблона"
+        string displayName "1-100 символов (name в шаблоне)"
+        string defaultCurrency "MDL | EUR | USD"
+        int avatarFileId FK "nullable, -> files.id"
     }
 
     ACCOUNT {
-        string id PK "guid"
-        string userId FK "-> USER.id"
+        int id PK
+        int userId FK "-> USER.id"
         string name "1-50 символов"
         string currency "ISO-4217, 3 буквы"
         string kind "card | cash | savings"
-        decimal initialBalance "18,2; баланс при открытии"
+        int initialBalanceCents "баланс при открытии, копейки"
     }
 
     TRANSACTION {
-        string id PK "guid"
-        string accountId FK "-> ACCOUNT.id"
-        decimal amount "18,2; строго > 0"
+        int id PK
+        int accountId FK "-> ACCOUNT.id"
+        int amountCents "строго > 0, копейки"
         string type "income | expense"
         string category "из справочника категорий"
         datetime date "UTC, не позже сегодня + 1 день"
@@ -42,10 +49,10 @@ erDiagram
     }
 
     BUDGET {
-        string id PK "guid"
-        string userId FK "-> USER.id"
+        int id PK
+        int userId FK "-> USER.id"
         string category "из справочника расходов"
-        decimal limitAmount "18,2; > 0"
+        int limitCents "> 0, копейки"
         string month "формат YYYY-MM"
     }
 ```
@@ -70,7 +77,7 @@ erDiagram
 
 | Поле | Тип | Ограничения |
 |---|---|---|
-| `id` | string (guid) | PK |
+| `id` | integer | PK, AUTOINCREMENT |
 | `email` | string | обязательно, уникально, валидный email |
 | `passwordHash` | string | обязательно; чистый пароль нигде не хранится |
 | `displayName` | string | обязательно, 1–100 символов |
@@ -81,12 +88,12 @@ erDiagram
 
 | Поле | Тип | Ограничения |
 |---|---|---|
-| `id` | string (guid) | PK |
-| `userId` | string | FK → `User.id`, обязательно |
+| `id` | integer | PK, AUTOINCREMENT |
+| `userId` | integer | FK → `User.id`, обязательно |
 | `name` | string | обязательно, 1–50 символов, уникально в пределах пользователя |
 | `currency` | string | ISO-4217, 3 заглавные буквы |
 | `kind` | enum | `card` \| `cash` \| `savings`; по умолчанию `card`. Определяет иконку счёта (добавлено на L4) |
-| `initialBalance` | decimal(18,2) | баланс на момент создания счёта, по умолчанию `0`, может быть отрицательным (кредитная карта); задаётся только при создании |
+| `initialBalance` | число → `initial_balance_cents INTEGER` | баланс на момент создания счёта, по умолчанию `0`, может быть отрицательным (кредитная карта); задаётся только при создании |
 
 Поля `balance` в таблице нет: баланс вычисляется (см. ниже) и отдаётся API как
 производное значение. С L4 так же считает и клиент.
@@ -95,9 +102,9 @@ erDiagram
 
 | Поле | Тип | Ограничения |
 |---|---|---|
-| `id` | string (guid) | PK |
-| `accountId` | string | FK → `Account.id`, обязательно |
-| `amount` | decimal(18,2) | **строго > 0**, не более 2 знаков после запятой, ≤ 1 000 000 |
+| `id` | integer | PK, AUTOINCREMENT |
+| `accountId` | integer | FK → `Account.id`, обязательно, ON DELETE CASCADE |
+| `amount` | число → `amount_cents INTEGER` | **строго > 0**, не более 2 знаков после запятой, ≤ 1 000 000 |
 | `type` | enum | `income` \| `expense`; знак операции задаётся типом, не знаком суммы |
 | `category` | string | обязательно, значение из справочника, согласованное с `type` |
 | `date` | datetime (UTC) | обязательно, не позже «сегодня + 1 день» |
@@ -107,10 +114,10 @@ erDiagram
 
 | Поле | Тип | Ограничения |
 |---|---|---|
-| `id` | string (guid) | PK |
-| `userId` | string | FK → `User.id`, обязательно |
+| `id` | integer | PK, AUTOINCREMENT |
+| `userId` | integer | FK → `User.id`, обязательно |
 | `category` | string | обязательно, из справочника расходов |
-| `limitAmount` | decimal(18,2) | > 0 |
+| `limitAmount` | число → `limit_cents INTEGER` | > 0 |
 | `month` | string | формат `YYYY-MM` |
 
 ---
@@ -130,8 +137,9 @@ erDiagram
 
 ## Вычисляемые величины
 
-Эти значения **не хранятся** в базе, а считаются при запросе (на backend-е — в
-агрегатах `/budgets` и `/dashboard/summary`, на mock-этапах — в производных провайдерах).
+Эти значения **не хранятся** в базе, а считаются при запросе: на backend-е —
+SQL-запросами (`balance` в `/accounts`, `spentAmount` в `/budgets`), в
+приложении — производными провайдерами из списка операций.
 
 | Величина | Формула |
 |---|---|

@@ -1,8 +1,13 @@
 # Контракт API WalletMate
 
-Документ разворачивает раздел 6 `CLAUDE.md` и добавляет примеры запросов и ответов.
-**Это зеркало раздела 6** — при изменении контракта правятся оба файла одновременно,
-а также реализации на клиенте и на сервере.
+Контракт сервера с этапа L5. Backend построен на шаблоне курса PAM (порт
+.NET 9 Minimal API), поэтому общие правила — формат ошибок, пагинация, JWT,
+загрузка файлов — взяты из шаблона, а маршруты WalletMate добавлены по его
+рецепту. Реализация — `backend/`, клиент — `app/lib/features/*/data/api_*.dart`.
+
+> На L1 контракт описывал ASP.NET Core с EF Core, ProblemDetails (RFC 7807),
+> guid-идентификаторы и префикс `/api`. После выдачи шаблона курса контракт
+> приведён к нему: так требует задание L5.
 
 ---
 
@@ -10,147 +15,151 @@
 
 | | |
 |---|---|
-| Base URL (Android-эмулятор) | `http://10.0.2.2:5099/api` |
-| Base URL (веб / десктоп) | `http://localhost:5099/api` |
-| Формат | JSON, `Content-Type: application/json; charset=utf-8` |
-| Даты | ISO-8601 в UTC (`2026-09-14T18:25:00Z`) в обе стороны |
-| Деньги | число с двумя знаками после запятой, никогда не строка |
-| Идентификаторы | guid в строковом виде |
-| Авторизация | `Authorization: Bearer <token>` для всех эндпоинтов, кроме `/auth/register` и `/auth/login` |
-| Срок жизни токена | 7 дней, HS256 |
+| Base URL (веб, десктоп, iOS-симулятор) | `http://localhost:8080` |
+| Base URL (Android-эмулятор) | `http://10.0.2.2:8080` |
+| Формат | JSON, `Content-Type: application/json` |
+| Даты | ISO-8601; сервер хранит и отдаёт UTC (`2026-09-14T18:25:00Z`) |
+| Деньги | число, не больше двух знаков после запятой; в базе — целые копейки |
+| Идентификаторы | целые числа (`INTEGER PRIMARY KEY`); клиент хранит их строками |
+| Авторизация | `Authorization: Bearer <token>` везде, кроме `/health`, `/auth/*` и `GET /files/{id}` |
+| Токен | JWT HS256, `sub` — id пользователя, срок жизни 7 дней |
+| Порт | переменная `PORT`, по умолчанию `8080` |
 
-Интерактивная документация — Swagger UI на `http://localhost:5099/swagger`
-(включён только в Development), с кнопкой **Authorize** для Bearer-токена.
+### Списки
+
+Все списки — в формате шаблона:
+
+```json
+{ "items": [ ... ], "page": 1, "limit": 20, "total": 27 }
+```
+
+`page` — с единицы, `limit` — от 1 до 100 (по умолчанию 20). Клиенту нужны все
+операции для расчёта балансов и бюджетов, поэтому он читает списки страницами
+по 100 до `total`.
+
+### Ошибки
+
+Любая ошибка — в формате шаблона:
+
+```json
+{ "error": { "code": "CONFLICT", "message": "Счёт с таким названием уже есть" } }
+```
+
+| HTTP | `code` | Когда |
+|---|---|---|
+| 400 | `VALIDATION_ERROR` | неверные поля, битый JSON, неверные параметры запроса |
+| 401 | `UNAUTHORIZED` | нет токена, токен неверный или истёк, неверный пароль при входе |
+| 404 | `NOT_FOUND` | записи нет **или она чужая** — эти случаи не различаются |
+| 409 | `EMAIL_TAKEN` | регистрация на занятый email (шаблон) |
+| 409 | `CONFLICT` | повтор названия счёта, второй бюджет на категорию и месяц (WalletMate) |
+| 500 | `INTERNAL` | непредвиденная ошибка сервера |
+
+Сообщения маршрутов шаблона — на английском, маршрутов WalletMate — на
+русском, их клиент показывает как есть. Ответы шаблона клиент переводит сам:
+`401` при входе → «Неверный email или пароль», `EMAIL_TAKEN` → «Аккаунт с таким
+email уже есть». `401` на запросе с токеном завершает сессию.
 
 ---
 
-## Auth
+## Auth (шаблон)
 
 ### POST `/auth/register`
 
-Создаёт пользователя и сразу возвращает токен.
-
-**Запрос**
-
 ```json
-{
-  "email": "ion.rusu@student.utm.md",
-  "password": "Student2026",
-  "displayName": "Ion Rusu"
-}
+{ "email": "ion@student.utm.md", "password": "Secret123", "name": "Ion Rusu" }
 ```
 
-**Ответ `201 Created`**
+**`201 Created`**
 
 ```json
-{
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI5ZjNh...",
-  "expiresAt": "2026-09-21T18:25:00Z",
-  "user": {
-    "id": "9f3a1c20-5d4e-4b18-9d2a-7c6b1f0e3a55",
-    "email": "ion.rusu@student.utm.md",
-    "displayName": "Ion Rusu",
-    "defaultCurrency": "MDL",
-    "avatarUrl": null
-  }
-}
+{ "token": "eyJhbGciOi...", "user": { "id": 2, "email": "ion@student.utm.md", "name": "Ion Rusu" } }
 ```
 
-**Ошибки:** `400` — невалидный email или слабый пароль; `409` — email уже занят.
+**Ошибки:** `400` — нет email, пароля или имени; `409 EMAIL_TAKEN`.
 
 ### POST `/auth/login`
-
-**Запрос**
 
 ```json
 { "email": "demo@walletmate.md", "password": "Demo1234" }
 ```
 
-**Ответ `200 OK`** — то же тело, что у регистрации.
+**`200 OK`** — `{token, user}`, как при регистрации. **Ошибки:** `401`.
 
-**Ошибки:** `401` — неверная пара email / пароль (без уточнения, что именно неверно).
+### GET `/me`
 
-### GET `/auth/me`
+**`200 OK`** — `{id, email, name}`. Приложение читает расширенный профиль
+через `/profile`.
 
-Возвращает текущего пользователя по токену. Используется на старте приложения,
-чтобы проверить сохранённый токен.
+---
 
-**Ответ `200 OK`**
+## Profile
+
+### GET `/profile`
 
 ```json
 {
-  "id": "9f3a1c20-5d4e-4b18-9d2a-7c6b1f0e3a55",
+  "id": 1,
   "email": "demo@walletmate.md",
-  "displayName": "Demo User",
+  "displayName": "Ion Rusu",
   "defaultCurrency": "MDL",
-  "avatarUrl": "/uploads/avatars/9f3a1c20.jpg"
+  "avatarUrl": "/files/7"
 }
 ```
 
-**Ошибки:** `401` — токен отсутствует, повреждён или просрочен.
+`avatarUrl` — путь к публичному `GET /files/{id}` или `null`.
+
+### PUT `/profile`
+
+```json
+{ "displayName": "Ion Rusu", "defaultCurrency": "EUR", "avatarFileId": 7 }
+```
+
+`avatarFileId` — необязательный id из `POST /files`; без него аватар не
+меняется. **`200 OK`** — профиль. **Ошибки:** `400` — пустое имя, валюта не
+из `MDL`/`EUR`/`USD`, файл не изображение; `404` — файла нет или он чужой.
 
 ---
 
 ## Accounts
 
-Все операции работают только со счетами текущего пользователя. Обращение к чужому
-счёту возвращает `404` (существование чужих записей не раскрывается).
-
-### GET `/accounts`
-
-**Ответ `200 OK`**
+### GET `/accounts?page&limit`
 
 ```json
-[
-  { "id": "1b8f...", "name": "Карта Maib", "currency": "MDL", "kind": "card",
-    "initialBalance": 1250.00, "balance": 4210.50 },
-  { "id": "2c9a...", "name": "Наличные",   "currency": "MDL", "kind": "cash",
-    "initialBalance": 1500.00, "balance": 780.00 },
-  { "id": "3d7e...", "name": "Сбережения", "currency": "EUR", "kind": "savings",
-    "initialBalance": 250.00, "balance": 350.00 }
-]
+{
+  "items": [
+    {
+      "id": 1,
+      "name": "Карта Maib",
+      "currency": "MDL",
+      "kind": "card",
+      "initialBalance": 1250,
+      "balance": 10847.2,
+      "createdAt": "2026-11-16T10:00:00.0000000Z"
+    }
+  ],
+  "page": 1, "limit": 20, "total": 3
+}
 ```
 
-`kind` — тип счёта (`card` | `cash` | `savings`), добавлен на L4: по нему клиент
-выбирает иконку. `balance` вычисляется сервером из `initialBalance` и транзакций.
+`balance` = `initialBalance` + доходы − расходы счёта, считается SQL-запросом.
+Порядок — по созданию.
 
 ### POST `/accounts`
 
-**Запрос**
-
 ```json
-{ "name": "Карта Maib", "currency": "MDL", "kind": "card", "initialBalance": 4000.00 }
+{ "name": "Карта Maib", "currency": "MDL", "kind": "card", "initialBalance": 1250 }
 ```
 
-**Ответ `201 Created`**, заголовок `Location: /api/accounts/1b8f...`
+**`201 Created`** — счёт. **Ошибки:** `400` — название пустое или длиннее 50,
+валюта не из `MDL`/`EUR`/`USD`, `kind` не из `card`/`cash`/`savings`;
+`409 CONFLICT` — название уже есть у пользователя (без учёта регистра).
 
-```json
-{ "id": "1b8f...", "name": "Карта Maib", "currency": "MDL", "kind": "card",
-  "initialBalance": 4000.00, "balance": 4000.00 }
-```
+### GET `/accounts/{id}` · PUT `/accounts/{id}` · DELETE `/accounts/{id}`
 
-`initialBalance` необязателен (по умолчанию `0`) и сохраняется как стартовая
-корректировка баланса; дальше баланс считается из транзакций.
-
-### GET `/accounts/{id}`
-
-**Ответ `200 OK`** — один объект `Account`. **Ошибки:** `404`.
-
-### PUT `/accounts/{id}`
-
-**Запрос**
-
-```json
-{ "name": "Карта Maib (основная)", "currency": "MDL", "kind": "card" }
-```
-
-**Ответ `200 OK`** — обновлённый объект. **Ошибки:** `400`, `404`, `409` — счёт
-с таким названием у пользователя уже есть (без учёта регистра).
-
-### DELETE `/accounts/{id}`
-
-**Ответ `204 No Content`.** Каскадно удаляет транзакции счёта — в UI обязательно
-подтверждение с указанием количества удаляемых операций.
+`PUT` принимает `{name, currency, kind}`: начальный баланс задаётся только при
+создании, дальше баланс определяют операции. `DELETE` → `204 No Content` и
+**каскадно удаляет операции счёта**; клиент предупреждает об этом в диалоге с
+числом операций.
 
 ---
 
@@ -158,253 +167,129 @@
 
 ### GET `/transactions`
 
-**Параметры запроса**
+| Параметр | Описание |
+|---|---|
+| `page`, `limit` | пагинация шаблона |
+| `search` | подстрока в заметке |
+| `type` | `income` или `expense` |
+| `category` | ключ из справочника |
+| `accountId` | только этот счёт |
+| `from`, `to` | период, ISO-8601, обе границы включительно |
 
-| Параметр | Тип | По умолчанию | Описание |
-|---|---|---|---|
-| `accountId` | guid | — | Фильтр по счёту |
-| `category` | string | — | Ключ категории из справочника |
-| `type` | `income` \| `expense` | — | Тип операции |
-| `from` | date (UTC) | — | Начало периода включительно |
-| `to` | date (UTC) | — | Конец периода включительно |
-| `search` | string | — | Подстрока в заметке, регистронезависимо |
-| `page` | int | `1` | Номер страницы, с единицы |
-| `pageSize` | int | `20` | Размер страницы, максимум `100` |
-
-Сортировка — по `date` убыванию.
-
-**Пример**
+Сортировка — по дате, новые сверху.
 
 ```http
-GET /api/transactions?type=expense&category=food&from=2026-09-01T00:00:00Z&to=2026-09-30T23:59:59Z&page=1&pageSize=20
+GET /transactions?type=expense&category=food&from=2026-11-01T00:00:00Z&to=2026-11-30T23:59:59Z
 ```
-
-**Ответ `200 OK`**
 
 ```json
 {
   "items": [
     {
-      "id": "7a1c...",
-      "accountId": "1b8f...",
-      "amount": 249.90,
+      "id": 26,
+      "accountId": 2,
+      "amount": 132.7,
       "type": "expense",
       "category": "food",
-      "date": "2026-09-14T18:25:00Z",
-      "note": "Продукты на неделю"
-    },
-    {
-      "id": "7a1d...",
-      "accountId": "2c9a...",
-      "amount": 85.00,
-      "type": "expense",
-      "category": "food",
-      "date": "2026-09-12T09:10:00Z",
-      "note": null
+      "date": "2026-11-17T07:50:00Z",
+      "note": "Кофе и выпечка",
+      "createdAt": "2026-11-16T10:00:00.0000000Z"
     }
   ],
-  "page": 1,
-  "pageSize": 20,
-  "totalItems": 34,
-  "totalPages": 2
+  "page": 1, "limit": 20, "total": 5
 }
 ```
 
-### POST `/transactions`
-
-**Запрос**
+### POST `/transactions` · PUT `/transactions/{id}`
 
 ```json
 {
-  "accountId": "1b8f...",
-  "amount": 249.90,
+  "accountId": 2,
+  "amount": 132.70,
   "type": "expense",
   "category": "food",
-  "date": "2026-09-14T18:25:00Z",
-  "note": "Продукты на неделю"
+  "date": "2026-11-17T07:50:00Z",
+  "note": "Кофе и выпечка"
 }
 ```
 
-**Ответ `201 Created`** — созданная транзакция.
+**`201 Created`** / **`200 OK`** — операция. **Ошибки:** `400` — сумма ≤ 0,
+больше 1 000 000 или с тремя знаками после запятой; категория не подходит к
+типу; дата позже завтрашнего дня; заметка длиннее 200 символов; `404` — счёт
+не найден или чужой.
 
-**Ошибки:** `400` — сумма ≤ 0, категория вне справочника, дата в будущем больше чем
-на сутки; `404` — счёт не найден или принадлежит другому пользователю.
+### GET `/transactions/{id}` · DELETE `/transactions/{id}`
 
-### GET `/transactions/{id}`
-
-**Ответ `200 OK`** — один объект `Transaction`. **Ошибки:** `404`.
-
-### PUT `/transactions/{id}`
-
-Тело — как у `POST`. **Ответ `200 OK`** — обновлённая транзакция.
-
-### DELETE `/transactions/{id}`
-
-**Ответ `204 No Content`.**
+`200 OK` с операцией / `204 No Content`; `404` для несуществующей или чужой.
 
 ---
 
 ## Budgets
 
-### GET `/budgets`
-
-**Параметры:** `month` в формате `YYYY-MM` (по умолчанию — текущий месяц).
-`spentAmount` и `progress` считает сервер.
-
-```http
-GET /api/budgets?month=2026-09
-```
-
-**Ответ `200 OK`**
-
-```json
-[
-  { "id": "b101...", "category": "food",          "limitAmount": 1300.00, "month": "2026-09", "spentAmount": 1200.00, "progress": 0.923 },
-  { "id": "b102...", "category": "transport",     "limitAmount": 600.00,  "month": "2026-09", "spentAmount": 640.00,  "progress": 1.067 },
-  { "id": "b103...", "category": "entertainment", "limitAmount": 500.00,  "month": "2026-09", "spentAmount": 180.00,  "progress": 0.360 }
-]
-```
-
-### POST `/budgets`
-
-**Запрос**
-
-```json
-{ "category": "food", "limitAmount": 1300.00, "month": "2026-09" }
-```
-
-**Ответ `201 Created`** — созданный бюджет с `spentAmount` и `progress`.
-
-**Ошибки:** `400` — лимит ≤ 0 или неверный формат месяца;
-`409` — бюджет на эту категорию и месяц уже существует.
-
-### GET `/budgets/{id}` · PUT `/budgets/{id}` · DELETE `/budgets/{id}`
-
-`GET` → `200 OK` с объектом бюджета, `PUT` принимает то же тело, что `POST`,
-и возвращает `200 OK`, `DELETE` → `204 No Content`.
-
----
-
-## Dashboard
-
-### GET `/dashboard/summary`
-
-Агрегат для панели: считается на сервере, чтобы клиент не пересчитывал те же суммы.
-
-```http
-GET /api/dashboard/summary?month=2026-09
-```
-
-**Ответ `200 OK`**
+### GET `/budgets?month=YYYY-MM&page&limit`
 
 ```json
 {
-  "accounts": [
-    { "id": "1b8f...", "name": "Карта Maib", "currency": "MDL", "balance": 4210.50 },
-    { "id": "2c9a...", "name": "Наличные",   "currency": "MDL", "balance": 780.00 }
+  "items": [
+    {
+      "id": 1,
+      "category": "food",
+      "limitAmount": 1300,
+      "month": "2026-11",
+      "spentAmount": 1200,
+      "createdAt": "2026-11-16T10:00:00.0000000Z"
+    }
   ],
-  "totalIncome": 8000.00,
-  "totalExpense": 3789.50,
-  "byCategory": [
-    { "category": "food",      "amount": 1200.00, "share": 0.317 },
-    { "category": "transport", "amount": 640.00,  "share": 0.169 },
-    { "category": "housing",   "amount": 1500.00, "share": 0.396 },
-    { "category": "other",     "amount": 449.50,  "share": 0.118 }
-  ],
-  "budgets": [
-    { "category": "food",      "limitAmount": 1300.00, "spentAmount": 1200.00, "progress": 0.923 },
-    { "category": "transport", "limitAmount": 600.00,  "spentAmount": 640.00,  "progress": 1.067 }
-  ]
+  "page": 1, "limit": 20, "total": 5
 }
 ```
 
+`spentAmount` — расходы категории за месяц по счетам **в валюте по умолчанию**
+из профиля; месяц операции берётся по её дате в UTC.
+
+### POST `/budgets` · PUT `/budgets/{id}`
+
+```json
+{ "category": "food", "limitAmount": 1300, "month": "2026-11" }
+```
+
+**Ошибки:** `400` — категория не из расходов, лимит ≤ 0, месяц не в формате
+`YYYY-MM`; `409 CONFLICT` — на эту категорию в этом месяце бюджет уже есть.
+
+### GET `/budgets/{id}` · DELETE `/budgets/{id}`
+
+`200 OK` / `204 No Content`; операции при удалении бюджета не затрагиваются.
+
 ---
 
-## Загрузка аватара
+## Files (шаблон)
 
-### POST `/users/me/avatar`
+### POST `/files`
 
-`multipart/form-data`, поле `file`: только `image/jpeg` и `image/png`, размер ≤ 2 МБ.
-
-**Ответ `200 OK`**
+`multipart/form-data`, поле `file`, не больше 5 МБ. **`201 Created`**:
 
 ```json
-{ "avatarUrl": "/uploads/avatars/9f3a1c20.jpg" }
+{ "id": 7, "url": "/files/7", "name": "avatar.jpg", "size": 48213, "mimeType": "image/jpeg" }
 ```
 
-**Ошибки:** `400` — неподдерживаемый тип файла или превышен размер.
+### GET `/files/{id}`
+
+Публичный: отдаёт байты файла с исходным `Content-Type`, чтобы
+`Image.network` показывал аватар по URL без токена.
 
 ---
 
-## Формат ошибок
+## Сводка маршрутов
 
-Все ошибки возвращаются в формате RFC 7807 ProblemDetails.
-
-**`400 Bad Request` — ошибки валидации по полям**
-
-```json
-{
-  "type": "https://httpstatuses.io/400",
-  "title": "Validation failed",
-  "status": 400,
-  "errors": {
-    "amount": ["Amount must be greater than zero"],
-    "category": ["Category is required"]
-  }
-}
-```
-
-Клиент раскладывает `errors` по полям формы и показывает текст под соответствующим
-полем через `errorText`.
-
-**`401 Unauthorized`**
-
-```json
-{ "type": "https://httpstatuses.io/401", "title": "Unauthorized", "status": 401,
-  "detail": "Token is missing or expired" }
-```
-
-**`403 Forbidden`**
-
-```json
-{ "type": "https://httpstatuses.io/403", "title": "Forbidden", "status": 403,
-  "detail": "Resource belongs to another user" }
-```
-
-**`404 Not Found`**
-
-```json
-{ "type": "https://httpstatuses.io/404", "title": "Not found", "status": 404,
-  "detail": "Transaction 7a1c... was not found" }
-```
-
-**`409 Conflict`**
-
-```json
-{ "type": "https://httpstatuses.io/409", "title": "Budget already exists", "status": 409,
-  "detail": "Budget for category food and month 2026-09 already exists" }
-```
-
-**`500 Internal Server Error`**
-
-```json
-{ "type": "https://httpstatuses.io/500", "title": "Internal server error", "status": 500,
-  "detail": "Unexpected error. Request id: 0HN7GK3M1F9PL" }
-```
-
-Подробности исключения наружу не отдаются — только идентификатор запроса,
-по которому ошибку можно найти в логах.
-
-### Сводка кодов
-
-| Код | Когда |
-|---|---|
-| `200` | Успешное чтение или обновление |
-| `201` | Ресурс создан, `Location` указывает на него |
-| `204` | Успешное удаление |
-| `400` | Ошибка валидации входных данных |
-| `401` | Токен отсутствует, повреждён или просрочен |
-| `403` | Доступ к чужому ресурсу |
-| `404` | Ресурс не найден |
-| `409` | Конфликт: занятый email, дубликат бюджета на категорию и месяц |
-| `500` | Внутренняя ошибка сервера |
+| Метод и путь | Auth | Источник |
+|---|---|---|
+| `GET /health` | — | шаблон |
+| `POST /auth/register`, `POST /auth/login` | — | шаблон |
+| `GET /me` | да | шаблон |
+| `GET /profile`, `PUT /profile` | да | WalletMate |
+| `GET/POST /accounts`, `GET/PUT/DELETE /accounts/{id}` | да | WalletMate |
+| `GET/POST /transactions`, `GET/PUT/DELETE /transactions/{id}` | да | WalletMate |
+| `GET/POST /budgets`, `GET/PUT/DELETE /budgets/{id}` | да | WalletMate |
+| `POST /files` | да | шаблон |
+| `GET /files/{id}` | — | шаблон |
+| `GET/POST /notes`, `GET/PUT/DELETE /notes/{id}` | да | пример шаблона, приложением не используется |
