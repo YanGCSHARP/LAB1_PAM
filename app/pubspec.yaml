@@ -28,6 +28,15 @@ dependencies:
   flutter_riverpod: ^3.4.3
   equatable: ^2.1.0
 
+  # HTTP client for the backend: base URL, JWT interceptor, multipart upload.
+  dio: ^5.11.1
+
+  # The JWT, kept in the platform keystore rather than in plain preferences.
+  flutter_secure_storage: ^11.2.0
+
+  # Picking the avatar from the gallery.
+  image_picker: ^1.2.4
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

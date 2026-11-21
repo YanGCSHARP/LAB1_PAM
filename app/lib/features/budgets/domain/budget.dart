@@ -12,7 +12,7 @@ class Budget extends Equatable {
   });
 
   factory Budget.fromJson(Map<String, dynamic> json) => Budget(
-    id: json['id'] as String,
+    id: '${json['id']}',
     category: json['category'] as String,
     limitAmount: (json['limitAmount'] as num).toDouble(),
     month: json['month'] as String,

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../features/accounts/application/accounts_providers.dart';
 import '../../features/accounts/presentation/account_form_screen.dart';
 import '../../features/accounts/presentation/accounts_screen.dart';
+import '../../features/auth/application/auth_service.dart';
 import '../../features/auth/presentation/login_screen.dart';
 import '../../features/auth/presentation/register_screen.dart';
 import '../../features/budgets/application/budgets_providers.dart';
@@ -49,6 +50,7 @@ String? authRedirect({required bool signedIn, required String location}) {
 /// through its provider and shows "not found" for an id that matches nothing.
 GoRouter createAppRouter({
   required AuthSession session,
+  required AuthService auth,
   String initialLocation = AppRoutes.login,
 }) {
   final rootKey = GlobalKey<NavigatorState>(debugLabel: 'root');
@@ -63,12 +65,11 @@ GoRouter createAppRouter({
     routes: [
       GoRoute(
         path: AppRoutes.login,
-        builder: (context, state) => LoginScreen(onSignedIn: session.signIn),
+        builder: (context, state) => LoginScreen(onSignIn: auth.signIn),
       ),
       GoRoute(
         path: AppRoutes.register,
-        builder: (context, state) =>
-            RegisterScreen(onRegistered: session.signIn),
+        builder: (context, state) => RegisterScreen(onRegister: auth.register),
       ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) =>

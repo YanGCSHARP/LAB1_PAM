@@ -2,9 +2,11 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../core/data/mock/mock_providers.dart';
 import '../../../core/l10n/app_strings.dart';
+import '../../../core/network/api_config.dart';
 import '../../../core/router/app_routes.dart';
 import '../../../core/state/app_session.dart';
 import '../../../core/theme/app_theme.dart';
@@ -19,6 +21,7 @@ import '../../../core/widgets/async_views.dart';
 import '../../../core/widgets/confirm_dialog.dart';
 import '../../../core/widgets/repository_action.dart';
 import '../../../core/widgets/skeleton.dart';
+import '../../auth/application/auth_service.dart';
 import '../application/profile_providers.dart';
 import '../domain/user_profile.dart';
 
@@ -95,8 +98,9 @@ class ProfileScreen extends ConsumerWidget {
       confirmLabel: AppStrings.signOut,
     );
     if (confirmed) {
-      // The router's redirect sees the session change and opens /login.
-      ref.read(authSessionProvider).signOut();
+      // Clears the stored token and the loaded data; the router's redirect
+      // sees the session change and opens /login.
+      await ref.read(authServiceProvider).signOut();
     }
   }
 
@@ -123,15 +127,7 @@ class ProfileScreen extends ConsumerWidget {
                   onTap: () => _editName(context, ref, profile),
                   child: Row(
                     children: [
-                      CircleAvatar(
-                        radius: 28,
-                        backgroundColor: context.colors.primaryContainer,
-                        foregroundColor: context.colors.onPrimaryContainer,
-                        child: Text(
-                          profile.initials,
-                          style: context.texts.titleMedium,
-                        ),
-                      ),
+                      _ProfileAvatar(profile: profile),
                       const SizedBox(width: Insets.lg),
                       Expanded(
                         child: Column(
@@ -217,8 +213,9 @@ class ProfileScreen extends ConsumerWidget {
             ),
           ),
           // Lets a demo show the error states without pulling the cable.
-          // Debug builds only; it goes away with the mock backend on L5.
-          if (kDebugMode) ...[
+          // Debug builds on the mock backend only: against the server,
+          // stopping the server shows the same states.
+          if (kDebugMode && ref.watch(useMockBackendProvider)) ...[
             const SizedBox(height: Insets.lg),
             AppCard(
               padding: const EdgeInsets.symmetric(vertical: Insets.xs),
@@ -309,6 +306,131 @@ class _NameFormState extends State<_NameForm> {
             ),
             const SizedBox(height: Insets.lg),
             PrimaryButton(label: AppStrings.save, onPressed: _save),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The avatar: the uploaded picture, or the initials until there is one.
+/// Tapping it picks a photo from the gallery and uploads it through the
+/// template's `POST /files`.
+class _ProfileAvatar extends ConsumerStatefulWidget {
+  const _ProfileAvatar({required this.profile});
+
+  final UserProfile profile;
+
+  @override
+  ConsumerState<_ProfileAvatar> createState() => _ProfileAvatarState();
+}
+
+class _ProfileAvatarState extends ConsumerState<_ProfileAvatar> {
+  bool _uploading = false;
+
+  Future<void> _pick() async {
+    final XFile? file;
+    try {
+      // Downscaled on the device: an avatar never needs a 12 MP original,
+      // and the server takes 5 MB at most.
+      file = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 512,
+        maxHeight: 512,
+        imageQuality: 85,
+      );
+    } on Exception {
+      if (mounted) {
+        showAppToast(
+          context,
+          'Не удалось открыть галерею',
+          tone: ToastTone.error,
+        );
+      }
+      return;
+    }
+    if (file == null || !mounted) {
+      return;
+    }
+    setState(() => _uploading = true);
+    final bytes = await file.readAsBytes();
+    if (!mounted) {
+      return;
+    }
+    final saved = await runRepositoryAction(
+      context,
+      () => ref
+          .read(profileProvider.notifier)
+          .uploadAvatar(
+            bytes: bytes,
+            filename: file!.name,
+            mimeType: file.mimeType ?? _mimeTypeOf(file.name),
+          ),
+    );
+    if (mounted) {
+      setState(() => _uploading = false);
+      if (saved) {
+        showAppToast(context, 'Фото обновлено', tone: ToastTone.success);
+      }
+    }
+  }
+
+  static String _mimeTypeOf(String name) {
+    final lower = name.toLowerCase();
+    if (lower.endsWith('.png')) {
+      return 'image/png';
+    }
+    if (lower.endsWith('.webp')) {
+      return 'image/webp';
+    }
+    if (lower.endsWith('.gif')) {
+      return 'image/gif';
+    }
+    return 'image/jpeg';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final url = widget.profile.avatarUrl;
+    return Semantics(
+      button: true,
+      label: 'Сменить фото',
+      child: GestureDetector(
+        onTap: _uploading ? null : _pick,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            CircleAvatar(
+              radius: 28,
+              backgroundColor: context.colors.primaryContainer,
+              foregroundColor: context.colors.onPrimaryContainer,
+              foregroundImage: url == null ? null : NetworkImage(url),
+              child: _uploading
+                  ? const SizedBox.square(
+                      dimension: IconSizes.md,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Text(
+                      widget.profile.initials,
+                      style: context.texts.titleMedium,
+                    ),
+            ),
+            Positioned(
+              right: -2,
+              bottom: -2,
+              child: Container(
+                padding: const EdgeInsets.all(3),
+                decoration: BoxDecoration(
+                  color: context.colors.surface,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.photo_camera_outlined,
+                  size: 14,
+                  color: context.semantic.textMuted,
+                ),
+              ),
+            ),
           ],
         ),
       ),

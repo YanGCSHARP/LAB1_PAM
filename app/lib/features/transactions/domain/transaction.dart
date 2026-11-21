@@ -16,8 +16,8 @@ class Transaction extends Equatable {
   });
 
   factory Transaction.fromJson(Map<String, dynamic> json) => Transaction(
-    id: json['id'] as String,
-    accountId: json['accountId'] as String,
+    id: '${json['id']}',
+    accountId: '${json['accountId']}',
     amount: (json['amount'] as num).toDouble(),
     kind: TransactionKind.values.byName(json['type'] as String),
     category: json['category'] as String,

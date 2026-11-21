@@ -20,7 +20,7 @@ class Account extends Equatable {
   });
 
   factory Account.fromJson(Map<String, dynamic> json) => Account(
-    id: json['id'] as String,
+    id: '${json['id']}',
     name: json['name'] as String,
     currency: json['currency'] as String,
     kind: AccountKind.values.asNameMap()[json['kind']] ?? AccountKind.card,

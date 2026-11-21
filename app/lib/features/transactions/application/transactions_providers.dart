@@ -1,16 +1,22 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/data/mock/mock_providers.dart';
+import '../../../core/network/api_client.dart';
+import '../../../core/network/api_config.dart';
 import '../../../core/utils/category_catalog.dart';
 import '../../accounts/application/accounts_providers.dart';
 import '../../accounts/domain/account.dart';
+import '../data/api_transaction_repository.dart';
 import '../data/mock_transaction_repository.dart';
 import '../data/transaction_repository.dart';
 import '../domain/transaction.dart';
 
-/// The only place that decides which [TransactionRepository] the app uses.
+/// The only place that decides which [TransactionRepository] the app uses: the
+/// backend, or the in-memory mock with `USE_MOCKS` and in tests.
 final transactionRepositoryProvider = Provider<TransactionRepository>(
-  (ref) => MockTransactionRepository(ref.watch(mockBackendProvider)),
+  (ref) => ref.watch(useMockBackendProvider)
+      ? MockTransactionRepository(ref.watch(mockBackendProvider))
+      : ApiTransactionRepository(ref.watch(apiClientProvider)),
 );
 
 /// Every operation of the user, newest first.

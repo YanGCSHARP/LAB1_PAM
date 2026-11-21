@@ -9,6 +9,7 @@ import 'core/router/app_routes.dart';
 import 'core/state/app_session.dart';
 import 'core/theme/app_theme.dart';
 import 'core/utils/formatters.dart';
+import 'features/auth/application/auth_service.dart';
 
 /// Retry policy for the [ProviderScope]: never retry a failed load
 /// automatically — the error state offers «Повторить» instead.
@@ -46,6 +47,7 @@ class _WalletMateAppState extends ConsumerState<WalletMateApp> {
     }
     _router = createAppRouter(
       session: session,
+      auth: ref.read(authServiceProvider),
       initialLocation: widget.initialLocation,
     );
   }

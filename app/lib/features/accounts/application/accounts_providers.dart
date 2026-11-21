@@ -1,17 +1,22 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/data/mock/mock_providers.dart';
+import '../../../core/network/api_client.dart';
+import '../../../core/network/api_config.dart';
 import '../../transactions/application/transactions_providers.dart';
 import '../../transactions/domain/transaction.dart';
 import '../data/account_repository.dart';
+import '../data/api_account_repository.dart';
 import '../data/mock_account_repository.dart';
 import '../domain/account.dart';
 import '../domain/balances.dart';
 
-/// The only place that decides which [AccountRepository] the app uses.
-/// L5 replaces the mock here, and nothing else changes.
+/// The only place that decides which [AccountRepository] the app uses: the
+/// backend, or the in-memory mock with `USE_MOCKS` and in tests.
 final accountRepositoryProvider = Provider<AccountRepository>(
-  (ref) => MockAccountRepository(ref.watch(mockBackendProvider)),
+  (ref) => ref.watch(useMockBackendProvider)
+      ? MockAccountRepository(ref.watch(mockBackendProvider))
+      : ApiAccountRepository(ref.watch(apiClientProvider)),
 );
 
 /// The user's accounts, loaded once and kept in sync with every change made
