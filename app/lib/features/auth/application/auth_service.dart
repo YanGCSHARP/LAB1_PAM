@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/data/cache/data_cache.dart';
 import '../../../core/data/mock/mock_providers.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_config.dart';
@@ -24,9 +25,10 @@ final authServiceProvider = Provider<AuthService>(AuthService.new);
 
 /// Signs in, signs up, restores and ends the session.
 ///
-/// Keeps three things in step: the token on the device ([TokenStorage]),
-/// the in-memory [AuthSession] the router and the API client read, and the
-/// cached data — the collections of one user must never be shown to the next.
+/// Keeps four things in step: the token on the device ([TokenStorage]),
+/// the in-memory [AuthSession] the router and the API client read, the
+/// offline copy ([DataCache]) and the loaded data — the collections of one
+/// user must never be shown to the next.
 class AuthService {
   AuthService(this._ref);
 
@@ -66,23 +68,27 @@ class AuthService {
 
   Future<void> signOut() async {
     await _storage.clear();
+    await _ref.read(dataCacheProvider).clear();
     _end();
   }
 
   /// The server rejected the token mid-session.
   void expire() {
     _storage.clear();
+    _ref.read(dataCacheProvider).clear();
     _end();
   }
 
   Future<void> _start(String token) async {
     await _storage.write(token);
+    await _ref.read(dataCacheProvider).clear();
     _resetData();
     _session.signIn(token);
   }
 
   void _end() {
     _session.signOut();
+    _ref.read(offlineProvider.notifier).set(offline: false);
     _resetData();
   }
 

@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/data/cache/cached_repositories.dart';
+import '../../../core/data/cache/data_cache.dart';
 import '../../../core/data/mock/mock_providers.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_config.dart';
@@ -17,11 +19,17 @@ import '../domain/budget.dart';
 import '../domain/budget_progress.dart';
 
 /// The only place that decides which [BudgetRepository] the app uses: the
-/// backend, or the in-memory mock with `USE_MOCKS` and in tests.
+/// backend behind the offline cache, or the in-memory mock with `USE_MOCKS`
+/// and in tests.
 final budgetRepositoryProvider = Provider<BudgetRepository>(
   (ref) => ref.watch(useMockBackendProvider)
       ? MockBudgetRepository(ref.watch(mockBackendProvider))
-      : ApiBudgetRepository(ref.watch(apiClientProvider)),
+      : CachedBudgetRepository(
+          ApiBudgetRepository(ref.watch(apiClientProvider)),
+          ref.watch(dataCacheProvider),
+          ({required offline}) =>
+              ref.read(offlineProvider.notifier).set(offline: offline),
+        ),
 );
 
 /// Every budget of the user, for all months.
