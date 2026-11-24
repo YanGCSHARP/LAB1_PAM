@@ -1,14 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/data/cache/data_cache.dart';
 import '../../../core/l10n/app_strings.dart';
+import '../../../core/widgets/app_toast.dart';
 
 /// Main frame of the app: four tabs in a [NavigationBar].
 ///
 /// Each tab is a branch of the router's `StatefulShellRoute`, so a tab keeps
 /// its own stack — open a transaction, switch to budgets and back, and the
 /// transaction is still open.
-class HomeShell extends StatelessWidget {
+///
+/// While the server is out of reach the shell shows a banner over every tab:
+/// the screens show the saved copy and changes cannot be saved.
+class HomeShell extends ConsumerWidget {
   const HomeShell({required this.navigationShell, super.key});
 
   final StatefulNavigationShell navigationShell;
@@ -46,9 +52,25 @@ class HomeShell extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final offline = ref.watch(offlineProvider);
     return Scaffold(
-      body: navigationShell,
+      body: Column(
+        children: [
+          if (offline)
+            const SafeArea(
+              bottom: false,
+              child: AppBanner(message: AppStrings.offlineBanner),
+            ),
+          Expanded(
+            child: MediaQuery.removePadding(
+              context: context,
+              removeTop: offline,
+              child: navigationShell,
+            ),
+          ),
+        ],
+      ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: navigationShell.currentIndex,
         onDestinationSelected: _select,
