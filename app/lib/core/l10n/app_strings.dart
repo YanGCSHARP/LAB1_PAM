@@ -65,4 +65,8 @@ abstract final class AppStrings {
   // Money
   static const String income = 'Доход';
   static const String expense = 'Расход';
+
+  // Offline
+  static const String offlineBanner =
+      'Нет соединения. Показаны сохранённые данные, изменения недоступны.';
 }

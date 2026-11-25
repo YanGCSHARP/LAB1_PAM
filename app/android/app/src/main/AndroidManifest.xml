@@ -5,7 +5,7 @@
     <!-- usesCleartextTraffic: the lab backend speaks plain HTTP (no TLS on
          localhost / 10.0.2.2), which Android blocks by default since API 28. -->
     <application
-        android:label="app"
+        android:label="WalletMate"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:usesCleartextTraffic="true">

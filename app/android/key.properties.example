@@ -1,0 +1,7 @@
+# Copy to key.properties (never committed) and fill in.
+# The keystore is created once:
+#   keytool -genkey -v -keystore upload-keystore.jks -keyalg RSA -keysize 2048 -validity 10000 -alias upload
+storePassword=...
+keyPassword=...
+keyAlias=upload
+storeFile=C:/path/to/upload-keystore.jks

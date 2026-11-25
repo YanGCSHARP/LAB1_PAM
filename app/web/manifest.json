@@ -1,11 +1,11 @@
 {
-    "name": "app",
-    "short_name": "app",
+    "name": "WalletMate",
+    "short_name": "WalletMate",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "WalletMate — учёт личных финансов",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

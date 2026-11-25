@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/data/cache/cached_repositories.dart';
+import '../../../core/data/cache/data_cache.dart';
 import '../../../core/data/mock/mock_providers.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_config.dart';
@@ -9,11 +11,17 @@ import '../data/profile_repository.dart';
 import '../domain/user_profile.dart';
 
 /// The only place that decides which [ProfileRepository] the app uses: the
-/// backend, or the in-memory mock with `USE_MOCKS` and in tests.
+/// backend behind the offline cache, or the in-memory mock with `USE_MOCKS`
+/// and in tests.
 final profileRepositoryProvider = Provider<ProfileRepository>(
   (ref) => ref.watch(useMockBackendProvider)
       ? MockProfileRepository(ref.watch(mockBackendProvider))
-      : ApiProfileRepository(ref.watch(apiClientProvider)),
+      : CachedProfileRepository(
+          ApiProfileRepository(ref.watch(apiClientProvider)),
+          ref.watch(dataCacheProvider),
+          ({required offline}) =>
+              ref.read(offlineProvider.notifier).set(offline: offline),
+        ),
 );
 
 /// The signed-in user. Its default currency drives the dashboard totals and
