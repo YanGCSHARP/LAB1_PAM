@@ -6,3 +6,6 @@ obj/
 app.db
 app.db-*
 uploads/
+
+# dotnet publish output
+publish/
